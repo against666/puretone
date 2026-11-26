@@ -6,9 +6,16 @@ import com.puretone.player.data.file.LocalImporter
 import com.puretone.player.data.prefs.AppPreferences
 import com.puretone.player.data.repo.MusicRepository
 import com.puretone.player.data.repo.PlaylistRepository
+import com.puretone.player.data.update.UpdateChecker
 import com.puretone.player.player.PlayerConnection
 
 class PureToneApplication : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        // 启动时静默检查更新，失败不打扰用户
+        updateChecker.checkInBackground()
+    }
 
     /** 全进程共用一个数据库实例，首次访问时才真正打开 */
     val database: PureToneDatabase by lazy { PureToneDatabase.get(this) }
@@ -33,4 +40,6 @@ class PureToneApplication : Application() {
             playlistTrackDao = database.playlistTrackDao(),
         )
     }
+
+    val updateChecker: UpdateChecker by lazy { UpdateChecker(this, preferences) }
 }

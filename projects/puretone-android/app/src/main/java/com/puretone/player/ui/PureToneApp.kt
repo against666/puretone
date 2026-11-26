@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -28,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.puretone.player.BuildConfig
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.prefs.ThemeMode
 import com.puretone.player.ui.components.PlayerBarHost
@@ -37,6 +39,7 @@ import com.puretone.player.ui.playlist.AddSongsScreen
 import com.puretone.player.ui.playlist.PlaylistDetailScreen
 import com.puretone.player.ui.search.SearchScreen
 import com.puretone.player.ui.settings.SettingsScreen
+import com.puretone.player.ui.update.UpdateDialog
 
 object Routes {
     const val LIBRARY = "library"
@@ -70,6 +73,8 @@ fun PureToneApp(
     onThemeModeChange: (ThemeMode) -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as PureToneApplication
+
+    val pendingUpdate by app.updateChecker.pending.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -158,6 +163,14 @@ fun PureToneApp(
                 )
             }
         }
+    }
+
+    pendingUpdate?.let { info ->
+        UpdateDialog(
+            info = info,
+            currentVersion = BuildConfig.VERSION_NAME,
+            onDismiss = { app.updateChecker.dismiss(info) },
+        )
     }
 }
 
