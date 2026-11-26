@@ -279,6 +279,10 @@ private fun LyricsPanel(
     BoxWithConstraints(modifier) {
         // 上下留白，让第一句和最后一句也能滚到中间
         val edgePadding = maxHeight * 0.35f
+
+        // 指针所指的那一行。只在手动滑动期间有意义，其余时候为 null
+        val targetIndex = if (followPausedUntil > 0L) targetLineIndex(listState) else null
+
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -288,6 +292,7 @@ private fun LyricsPanel(
                 LyricRow(
                     text = line.text,
                     isCurrent = index == currentIndex,
+                    isTarget = index == targetIndex,
                     onClick = {
                         // 点了具体某一句，立即恢复跟随并跳过去
                         followPausedUntil = 0L
@@ -297,8 +302,8 @@ private fun LyricsPanel(
             }
         }
 
-        if (followPausedUntil > 0L) {
-            val target = targetLineIndex(listState)?.let { lines.getOrNull(it) }
+        if (targetIndex != null) {
+            val target = lines.getOrNull(targetIndex)
             if (target != null) {
                 Row(
                     modifier = Modifier
@@ -356,22 +361,32 @@ private fun targetLineIndex(listState: LazyListState): Int? {
 private fun LyricRow(
     text: String,
     isCurrent: Boolean,
+    isTarget: Boolean,
     onClick: () -> Unit,
 ) {
+    // 三级层次：正在播放 > 指针所指 > 其余
     val color by animateColorAsState(
-        targetValue = if (isCurrent) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        targetValue = when {
+            isCurrent -> MaterialTheme.colorScheme.primary
+            isTarget -> MaterialTheme.colorScheme.onSurface
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         label = "lyricColor",
     )
     val fontSize by animateFloatAsState(
-        targetValue = if (isCurrent) 18f else 15f,
+        targetValue = when {
+            isCurrent -> 18f
+            isTarget -> 16.5f
+            else -> 15f
+        },
         label = "lyricSize",
     )
     val alpha by animateFloatAsState(
-        targetValue = if (isCurrent) 1f else 0.65f,
+        targetValue = when {
+            isCurrent -> 1f
+            isTarget -> 0.92f
+            else -> 0.65f
+        },
         label = "lyricAlpha",
     )
 
