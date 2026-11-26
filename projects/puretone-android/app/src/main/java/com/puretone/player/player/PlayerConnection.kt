@@ -118,6 +118,13 @@ class PlayerConnection(private val context: Context) {
         controller?.seekTo(positionMs)
     }
 
+    /** 点歌词行用：跳到这一句并开始播放 */
+    fun seekToAndPlay(positionMs: Long) {
+        val c = controller ?: return
+        c.seekTo(positionMs)
+        if (!c.isPlaying) c.play()
+    }
+
     private fun sync() {
         val c = controller ?: return
         val item = c.currentMediaItem

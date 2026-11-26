@@ -1,5 +1,6 @@
 package com.puretone.player.ui.player
 
+import android.os.SystemClock
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -22,11 +23,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +57,7 @@ import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.indexAt
 import com.puretone.player.ui.components.DotSeekBar
 import com.puretone.player.ui.components.formatDuration
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
@@ -126,7 +130,7 @@ fun PlayerScreen(
             LyricsPanel(
                 lines = lyricLines,
                 positionMs = state.positionMs,
-                onSeek = app.player::seekTo,
+                onSeek = app.player::seekToAndPlay,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
@@ -245,21 +249,28 @@ private fun LyricsPanel(
     val listState = rememberLazyListState()
     val currentIndex = remember(lines, positionMs) { lines.indexAt(positionMs) }
 
-    // 只把「用户手指拖动」当作手动滚动。
-    // 不能用 isScrollInProgress——自动滚动的动画也会让它为 true，会把自己锁死。
-    var userDragging by remember { mutableStateOf(false) }
+    // 手动滑动后的一段时间内不自动跟随，让用户能停下来看、找准要跳的那一句。
+    // 用时间戳而不是布尔值：到点自动恢复，不需要用户再点一下。
+    var followPausedUntil by remember { mutableStateOf(0L) }
+
     LaunchedEffect(listState) {
         listState.interactionSource.interactions.collect { interaction ->
-            when (interaction) {
-                is DragInteraction.Start -> userDragging = true
-                is DragInteraction.Stop, is DragInteraction.Cancel -> userDragging = false
-                else -> Unit
+            if (interaction is DragInteraction.Start) {
+                followPausedUntil = SystemClock.elapsedRealtime() + FOLLOW_RESUME_DELAY_MS
             }
         }
     }
 
-    LaunchedEffect(currentIndex, userDragging) {
-        if (currentIndex >= 0 && !userDragging) {
+    LaunchedEffect(followPausedUntil) {
+        if (followPausedUntil > 0L) {
+            val remain = followPausedUntil - SystemClock.elapsedRealtime()
+            if (remain > 0L) delay(remain)
+            followPausedUntil = 0L
+        }
+    }
+
+    LaunchedEffect(currentIndex, followPausedUntil) {
+        if (currentIndex >= 0 && followPausedUntil == 0L) {
             listState.animateScrollToItem(currentIndex)
         }
     }
@@ -276,12 +287,36 @@ private fun LyricsPanel(
                 LyricRow(
                     text = line.text,
                     isCurrent = index == currentIndex,
-                    onClick = { onSeek(line.timeMs) },
+                    onClick = {
+                        // 点了具体某一句，立即恢复跟随并跳过去
+                        followPausedUntil = 0L
+                        onSeek(line.timeMs)
+                    },
+                )
+            }
+        }
+
+        if (followPausedUntil > 0L) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 6.dp),
+            ) {
+                Text(
+                    text = "已暂停跟随 · 点歌词跳转，15 秒后回到当前播放",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
         }
     }
 }
+
+/** 手动滑动后暂停自动跟随的时长 */
+private const val FOLLOW_RESUME_DELAY_MS = 15_000L
 
 @Composable
 private fun LyricRow(
