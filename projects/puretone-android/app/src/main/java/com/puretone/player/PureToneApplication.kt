@@ -32,7 +32,7 @@ class PureToneApplication : Application() {
     }
 
     /** 与播放服务的连接，跟着进程存活 */
-    val player: PlayerConnection by lazy { PlayerConnection(this) }
+    val player: PlayerConnection by lazy { PlayerConnection(this, preferences) }
 
     val playlistRepository: PlaylistRepository by lazy {
         PlaylistRepository(

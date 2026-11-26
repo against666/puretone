@@ -11,6 +11,8 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.puretone.player.data.db.Track
+import com.puretone.player.data.prefs.AppPreferences
+import com.puretone.player.data.prefs.PlayMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,7 +30,10 @@ import kotlinx.coroutines.launch
  * UI 不直接持有 ExoPlayer，而是通过 MediaController 与 [PlaybackService] 通信，
  * 这样 Activity 重建、切页都不会影响播放。
  */
-class PlayerConnection(private val context: Context) {
+class PlayerConnection(
+    private val context: Context,
+    private val preferences: AppPreferences,
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -39,6 +44,13 @@ class PlayerConnection(private val context: Context) {
 
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+
+    private val _playMode = MutableStateFlow(PlayMode.SEQUENCE)
+    val playMode: StateFlow<PlayMode> = _playMode.asStateFlow()
+
+    /** 当前播放队列，供「播放队列」面板使用 */
+    private val _queue = MutableStateFlow<List<Track>>(emptyList())
+    val queue: StateFlow<List<Track>> = _queue.asStateFlow()
 
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) = sync()
@@ -69,6 +81,12 @@ class PlayerConnection(private val context: Context) {
                     sync()
                     startProgressTicker()
 
+                    scope.launch {
+                        val saved = preferences.currentPlayMode()
+                        _playMode.value = saved
+                        applyPlayMode(saved)
+                    }
+
                     pendingPlay?.invoke()
                     pendingPlay = null
                 }
@@ -89,10 +107,49 @@ class PlayerConnection(private val context: Context) {
         }
 
         val items = tracks.map { it.toMediaItem() }
+        _queue.value = tracks
         c.setMediaItems(items, startIndex.coerceIn(0, items.lastIndex), 0L)
         c.prepare()
         c.play()
         sync()
+    }
+
+    /** 队列面板里点某一首 */
+    fun playAt(index: Int) {
+        val c = controller ?: return
+        if (index !in _queue.value.indices) return
+        c.seekTo(index, 0L)
+        c.play()
+    }
+
+    fun cyclePlayMode() {
+        setPlayMode(_playMode.value.next())
+    }
+
+    fun setPlayMode(mode: PlayMode) {
+        _playMode.value = mode
+        preferences.setPlayMode(mode)
+        applyPlayMode(mode)
+    }
+
+    private fun applyPlayMode(mode: PlayMode) {
+        val c = controller ?: return
+        when (mode) {
+            PlayMode.SEQUENCE -> {
+                c.shuffleModeEnabled = false
+                c.repeatMode = Player.REPEAT_MODE_OFF
+            }
+
+            PlayMode.REPEAT_ONE -> {
+                c.shuffleModeEnabled = false
+                c.repeatMode = Player.REPEAT_MODE_ONE
+            }
+
+            PlayMode.SHUFFLE -> {
+                c.shuffleModeEnabled = true
+                c.repeatMode = Player.REPEAT_MODE_ALL
+            }
+        }
     }
 
     fun togglePlayPause() {
