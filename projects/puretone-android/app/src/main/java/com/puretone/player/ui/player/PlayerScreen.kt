@@ -1,10 +1,15 @@
 package com.puretone.player.ui.player
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +18,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -23,6 +31,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,13 +41,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.puretone.player.PureToneApplication
 import com.puretone.player.R
+import com.puretone.player.data.model.LyricState
+import com.puretone.player.lyric.LyricLine
+import com.puretone.player.lyric.LrcParser
+import com.puretone.player.lyric.indexAt
 import com.puretone.player.ui.components.formatDuration
+import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun PlayerScreen(
@@ -48,7 +64,23 @@ fun PlayerScreen(
     val app = LocalContext.current.applicationContext as PureToneApplication
     val state by app.player.state.collectAsStateWithLifecycle()
 
+    val track by remember(state.currentTrackId) {
+        if (state.currentTrackId <= 0L) {
+            flowOf(null)
+        } else {
+            app.repository.observeTrack(state.currentTrackId)
+        }
+    }.collectAsStateWithLifecycle(initialValue = null)
+
+    val lyricLines = remember(track?.id, track?.lyricText, track?.offsetMs) {
+        val raw = track?.lyricText
+        val offset = track?.offsetMs ?: 0
+        if (raw.isNullOrBlank()) emptyList() else LrcParser.parse(raw, offset)
+    }
+
     var dragPosition by remember { mutableStateOf<Float?>(null) }
+    val duration = state.durationMs.coerceAtLeast(1L)
+    val sliderValue = (dragPosition ?: state.positionMs.toFloat()).coerceIn(0f, duration.toFloat())
 
     Column(
         modifier = modifier
@@ -62,55 +94,46 @@ fun PlayerScreen(
             Text("← 返回")
         }
 
-        Spacer(Modifier.weight(0.9f))
-
-        Box(
-            modifier = Modifier
-                .size(220.dp)
-                .clip(CircleShape)
-                .background(
-                    if (state.hasMedia) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                )
-                .align(Alignment.CenterHorizontally),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = state.title.take(1).uppercase().ifBlank { "♪" },
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
-
-        Spacer(Modifier.height(36.dp))
-
         Text(
             text = state.title.ifBlank { "还没有播放中的歌曲" },
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             text = state.artist.ifBlank { "从音乐库选一首开始" },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
 
-        val duration = state.durationMs.coerceAtLeast(1L)
-        val sliderValue = (dragPosition ?: state.positionMs.toFloat()).coerceIn(0f, duration.toFloat())
+        if (lyricLines.isNotEmpty()) {
+            LyricsPanel(
+                lines = lyricLines,
+                positionMs = state.positionMs,
+                onSeek = app.player::seekTo,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+        } else {
+            NoLyricsPanel(
+                lyricState = track?.lyricState,
+                title = state.title,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+        }
 
         Slider(
             value = sliderValue,
@@ -138,7 +161,7 @@ fun PlayerScreen(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -201,16 +224,139 @@ fun PlayerScreen(
             }
         }
 
+        Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun LyricsPanel(
+    lines: List<LyricLine>,
+    positionMs: Long,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    val currentIndex = remember(lines, positionMs) { lines.indexAt(positionMs) }
+
+    // 只把「用户手指拖动」当作手动滚动。
+    // 不能用 isScrollInProgress——自动滚动的动画也会让它为 true，会把自己锁死。
+    var userDragging by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> userDragging = true
+                is DragInteraction.Stop, is DragInteraction.Cancel -> userDragging = false
+                else -> Unit
+            }
+        }
+    }
+
+    LaunchedEffect(currentIndex, userDragging) {
+        if (currentIndex >= 0 && !userDragging) {
+            listState.animateScrollToItem(currentIndex)
+        }
+    }
+
+    BoxWithConstraints(modifier) {
+        // 上下留白，让第一句和最后一句也能滚到中间
+        val edgePadding = maxHeight * 0.35f
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = edgePadding),
+        ) {
+            itemsIndexed(lines) { index, line ->
+                LyricRow(
+                    text = line.text,
+                    isCurrent = index == currentIndex,
+                    onClick = { onSeek(line.timeMs) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricRow(
+    text: String,
+    isCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    val color by animateColorAsState(
+        targetValue = if (isCurrent) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        label = "lyricColor",
+    )
+    val fontSize by animateFloatAsState(
+        targetValue = if (isCurrent) 18f else 15f,
+        label = "lyricSize",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (isCurrent) 1f else 0.65f,
+        label = "lyricAlpha",
+    )
+
+    Text(
+        text = text,
+        color = color.copy(alpha = alpha),
+        fontSize = fontSize.sp,
+        lineHeight = 26.sp,
+        fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 9.dp),
+    )
+}
+
+@Composable
+private fun NoLyricsPanel(
+    lyricState: LyricState?,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    val message = when (lyricState) {
+        LyricState.INSTRUMENTAL -> "该音乐为纯音乐，请享受"
+        LyricState.LOCAL -> "本地导入 · 无歌词"
+        LyricState.MISSING -> "暂无歌词"
+        LyricState.PLAIN -> "暂无同步歌词"
+        LyricState.SYNCED -> "暂无同步歌词"
+        null -> "还没有播放中的歌曲"
+    }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(168.dp)
+                .clip(CircleShape)
+                .background(
+                    if (title.isBlank()) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = title.take(1).uppercase().ifBlank { "♪" },
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
         Spacer(Modifier.height(20.dp))
-
         Text(
-            text = "歌词将在 M3 接入",
-            style = MaterialTheme.typography.labelMedium,
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
         )
-
-        Spacer(Modifier.weight(1f))
     }
 }
