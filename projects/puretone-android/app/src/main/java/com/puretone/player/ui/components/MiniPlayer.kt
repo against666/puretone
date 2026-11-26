@@ -88,7 +88,7 @@ fun MiniPlayer(
 
             Spacer(Modifier.width(12.dp))
 
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.widthIn(max = 116.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
@@ -105,6 +105,8 @@ fun MiniPlayer(
                 )
             }
 
+            Spacer(Modifier.width(8.dp))
+
             if (!currentLyric.isNullOrBlank()) {
                 Text(
                     text = currentLyric,
@@ -112,11 +114,13 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
-                        .widthIn(max = 120.dp)
-                        .padding(start = 8.dp),
+                        .weight(1f)
+                        .padding(horizontal = 4.dp),
                 )
+            } else {
+                Spacer(Modifier.weight(1f))
             }
 
             IconButton(onClick = onTogglePlay) {
