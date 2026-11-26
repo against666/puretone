@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.puretone.player.data.prefs.ThemeMode
 import com.puretone.player.ui.library.LibraryScreen
 import com.puretone.player.ui.player.PlayerScreen
 import com.puretone.player.ui.search.SearchScreen
@@ -46,7 +47,10 @@ private val Tabs = listOf(
 )
 
 @Composable
-fun PureToneApp() {
+fun PureToneApp(
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -83,7 +87,12 @@ fun PureToneApp() {
                 )
             }
             composable(Routes.SEARCH) { SearchScreen() }
-            composable(Routes.SETTINGS) { SettingsScreen() }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
+                )
+            }
             composable(Routes.PLAYER) {
                 PlayerScreen(onBack = { navController.popBackStack() })
             }
