@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -62,6 +63,7 @@ import com.puretone.player.data.prefs.PlayMode
 import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.LyricLine
 import com.puretone.player.lyric.indexAt
+import com.puretone.player.ui.components.AlbumArtBox
 import com.puretone.player.ui.components.DotSeekBar
 import com.puretone.player.ui.components.formatDuration
 import kotlin.math.abs
@@ -113,6 +115,16 @@ fun PlayerScreen(
         ) {
             Text("← 返回")
         }
+
+        Spacer(Modifier.height(4.dp))
+        AlbumArtBox(
+            coverUri = state.coverUri,
+            size = 96.dp,
+            corner = 16.dp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Spacer(Modifier.height(12.dp))
+
         Text(
             text = state.title.ifBlank { "还没有播放中的歌曲" },
             style = MaterialTheme.typography.titleLarge,
@@ -420,6 +432,30 @@ private fun LyricsPanel(
                 )
             }
         }
+        // 上下渐隐遮罩：让滚到边缘的歌词淡出去，而不是被硬生生切一刀
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(36.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(MaterialTheme.colorScheme.background, Color.Transparent),
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, MaterialTheme.colorScheme.background),
+                    ),
+                ),
+        )
+
         if (targetIndex != null) {
             val target = lines.getOrNull(targetIndex)
             if (target != null) {
