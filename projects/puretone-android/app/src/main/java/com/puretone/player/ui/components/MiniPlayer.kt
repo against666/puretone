@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,9 +29,54 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.puretone.player.PureToneApplication
 import com.puretone.player.R
 import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.indexAt
+import kotlinx.coroutines.flow.flowOf
+
+/**
+ * 迷你条的数据宿主。
+ *
+ * 播放状态每 500ms 变一次，如果让外面的 Scaffold 直接读，会让整棵导航树
+ * 跟着重组；把读取限制在这个小组件里，界面切页时就不会被进度刷新拖累。
+ */
+@Composable
+fun PlayerBarHost(
+    app: PureToneApplication,
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val state by app.player.state.collectAsStateWithLifecycle()
+
+    val track by remember(state.currentTrackId) {
+        if (state.currentTrackId <= 0L) {
+            flowOf(null)
+        } else {
+            app.repository.observeTrack(state.currentTrackId)
+        }
+    }.collectAsStateWithLifecycle(initialValue = null)
+
+    if (!state.hasMedia) return
+
+    MiniPlayer(
+        title = state.title,
+        artist = state.artist,
+        coverUri = state.coverUri,
+        lyricText = track?.lyricText,
+        positionMs = state.positionMs,
+        isPlaying = state.isPlaying,
+        progress = if (state.durationMs > 0L) {
+            state.positionMs.toFloat() / state.durationMs
+        } else {
+            0f
+        },
+        onClick = onOpenPlayer,
+        onTogglePlay = app.player::togglePlayPause,
+        modifier = modifier,
+    )
+}
 
 /**
  * 悬浮在底部导航栏上方的迷你播放条。

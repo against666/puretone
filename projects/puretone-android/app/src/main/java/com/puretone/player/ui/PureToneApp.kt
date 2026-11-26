@@ -1,5 +1,7 @@
 package com.puretone.player.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,7 +15,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -29,14 +30,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.prefs.ThemeMode
-import com.puretone.player.ui.components.MiniPlayer
+import com.puretone.player.ui.components.PlayerBarHost
 import com.puretone.player.ui.library.LibraryScreen
 import com.puretone.player.ui.player.PlayerScreen
 import com.puretone.player.ui.playlist.AddSongsScreen
 import com.puretone.player.ui.playlist.PlaylistDetailScreen
 import com.puretone.player.ui.search.SearchScreen
 import com.puretone.player.ui.settings.SettingsScreen
-import kotlinx.coroutines.flow.flowOf
 
 object Routes {
     const val LIBRARY = "library"
@@ -70,16 +70,6 @@ fun PureToneApp(
     onThemeModeChange: (ThemeMode) -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as PureToneApplication
-    val playerState by app.player.state.collectAsStateWithLifecycle()
-
-    // 迷你条要显示当前歌词，所以跟着当前曲目取一次歌词文本
-    val currentTrack by remember(playerState.currentTrackId) {
-        if (playerState.currentTrackId <= 0L) {
-            flowOf(null)
-        } else {
-            app.repository.observeTrack(playerState.currentTrackId)
-        }
-    }.collectAsStateWithLifecycle(initialValue = null)
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -89,27 +79,16 @@ fun PureToneApp(
     val isTab = Tabs.any { tab ->
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
     }
-    // 播放页全屏，其余页面只要有在播的歌就常驻迷你条
-    val showMiniPlayer = currentRoute != Routes.PLAYER && playerState.hasMedia
 
     Scaffold(
         bottomBar = {
             Column {
-                if (showMiniPlayer) {
-                    MiniPlayer(
-                        title = playerState.title,
-                        artist = playerState.artist,
-                        coverUri = playerState.coverUri,
-                        lyricText = currentTrack?.lyricText,
-                        positionMs = playerState.positionMs,
-                        isPlaying = playerState.isPlaying,
-                        progress = if (playerState.durationMs > 0L) {
-                            playerState.positionMs.toFloat() / playerState.durationMs
-                        } else {
-                            0f
-                        },
-                        onClick = { navController.navigate(Routes.PLAYER) },
-                        onTogglePlay = app.player::togglePlayPause,
+                // 播放页全屏，其余页面常驻迷你条。
+                // PlayerBarHost 内部自己订阅播放状态，外面的导航树不会被进度刷新带着重组。
+                if (currentRoute != Routes.PLAYER) {
+                    PlayerBarHost(
+                        app = app,
+                        onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                     )
                 }
                 if (isTab) {
@@ -133,6 +112,12 @@ fun PureToneApp(
             navController = navController,
             startDestination = Routes.LIBRARY,
             modifier = Modifier.padding(innerPadding),
+            // 全屏播放页与列表之间不做过场动画：淡入淡出会留下前一个界面的残影，
+            // 切页也更干脆
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
         ) {
             composable(Routes.LIBRARY) {
                 LibraryScreen(
