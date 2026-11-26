@@ -9,9 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -19,29 +18,42 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.puretone.player.R
+import com.puretone.player.lyric.LrcParser
+import com.puretone.player.lyric.indexAt
 
 /**
  * 停靠在底部导航栏上方的迷你播放条。
- * 顶部一条 2dp 的进度线，点击整条进入播放页。
+ * 顶部一条 2dp 进度线，右侧显示当前正在唱的那句歌词，点击整条进入播放页。
  */
 @Composable
 fun MiniPlayer(
     title: String,
     artist: String,
     coverUri: String?,
+    lyricText: String?,
+    positionMs: Long,
     isPlaying: Boolean,
     progress: Float,
     onClick: () -> Unit,
     onTogglePlay: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 歌词只在文本变化时解析一次，进度变化只重新定位当前行
+    val lines = remember(lyricText) {
+        if (lyricText.isNullOrBlank()) emptyList() else LrcParser.parse(lyricText)
+    }
+    val currentLyric = remember(lines, positionMs) {
+        lines.getOrNull(lines.indexAt(positionMs))?.text
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -90,6 +102,20 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            if (!currentLyric.isNullOrBlank()) {
+                Text(
+                    text = currentLyric,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier
+                        .widthIn(max = 120.dp)
+                        .padding(start = 8.dp),
                 )
             }
 

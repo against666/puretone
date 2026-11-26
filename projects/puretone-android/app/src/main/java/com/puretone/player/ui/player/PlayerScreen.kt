@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,6 +59,7 @@ import com.puretone.player.ui.components.DotSeekBar
 import com.puretone.player.ui.components.formatDuration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
+import kotlin.math.abs
 
 @Composable
 fun PlayerScreen(
@@ -297,26 +298,59 @@ private fun LyricsPanel(
         }
 
         if (followPausedUntil > 0L) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp),
-            ) {
-                Text(
-                    text = "已暂停跟随 · 点歌词跳转，15 秒后回到当前播放",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+            val target = targetLineIndex(listState)?.let { lines.getOrNull(it) }
+            if (target != null) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (target.timeMs <= 0L) "00:00" else formatDuration(target.timeMs),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                shape = RoundedCornerShape(6.dp),
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier
+                            .width(3.dp)
+                            .height(24.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(2.dp),
+                            ),
+                    )
+                }
             }
         }
     }
 }
 
 /** 手动滑动后暂停自动跟随的时长 */
-private const val FOLLOW_RESUME_DELAY_MS = 15_000L
+private const val FOLLOW_RESUME_DELAY_MS = 5_000L
+
+/**
+ * 取「指针所指」的那一行：右侧指针固定在歌词区竖直中央，
+ * 所以取跨越该中线的可见行；取不到就取中心最近的一行。
+ */
+private fun targetLineIndex(listState: LazyListState): Int? {
+    val info = listState.layoutInfo
+    val visible = info.visibleItemsInfo
+    if (visible.isEmpty()) return null
+
+    val anchorY = (info.viewportStartOffset + info.viewportEndOffset) / 2
+    visible.firstOrNull { anchorY >= it.offset && anchorY < it.offset + it.size }
+        ?.let { return it.index }
+
+    return visible.minByOrNull { abs(it.offset + it.size / 2 - anchorY) }?.index
+}
 
 @Composable
 private fun LyricRow(

@@ -13,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +36,7 @@ import com.puretone.player.ui.playlist.AddSongsScreen
 import com.puretone.player.ui.playlist.PlaylistDetailScreen
 import com.puretone.player.ui.search.SearchScreen
 import com.puretone.player.ui.settings.SettingsScreen
+import kotlinx.coroutines.flow.flowOf
 
 object Routes {
     const val LIBRARY = "library"
@@ -70,6 +72,15 @@ fun PureToneApp(
     val app = LocalContext.current.applicationContext as PureToneApplication
     val playerState by app.player.state.collectAsStateWithLifecycle()
 
+    // 迷你条要显示当前歌词，所以跟着当前曲目取一次歌词文本
+    val currentTrack by remember(playerState.currentTrackId) {
+        if (playerState.currentTrackId <= 0L) {
+            flowOf(null)
+        } else {
+            app.repository.observeTrack(playerState.currentTrackId)
+        }
+    }.collectAsStateWithLifecycle(initialValue = null)
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -89,6 +100,8 @@ fun PureToneApp(
                         title = playerState.title,
                         artist = playerState.artist,
                         coverUri = playerState.coverUri,
+                        lyricText = currentTrack?.lyricText,
+                        positionMs = playerState.positionMs,
                         isPlaying = playerState.isPlaying,
                         progress = if (playerState.durationMs > 0L) {
                             playerState.positionMs.toFloat() / playerState.durationMs
