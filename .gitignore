@@ -21,6 +21,9 @@ desktop.ini
 # ---- 代理/会话数据（不入版本库）----
 .workbuddy/
 
+# ---- 中间产物、临时截图 ----
+data/
+
 # ---- Python ----
 __pycache__/
 *.pyc
