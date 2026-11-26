@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.puretone.player.PureToneApplication
 import com.puretone.player.core.ALL_SONGS_ID
 import com.puretone.player.data.db.PlaylistWithCount
+import com.puretone.player.ui.components.AlbumArtBox
 
 @Composable
 fun LibraryScreen(
@@ -56,6 +57,7 @@ fun LibraryScreen(
 
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val trackCount by viewModel.trackCount.collectAsStateWithLifecycle()
+    val allSongsCover by viewModel.allSongsCover.collectAsStateWithLifecycle()
     val importing by viewModel.importing.collectAsStateWithLifecycle()
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -112,10 +114,9 @@ fun LibraryScreen(
         ) {
             item {
                 LibraryRow(
-                    badge = "♪",
+                    coverUri = allSongsCover,
                     title = "全部歌曲",
                     subtitle = "$trackCount 首",
-                    highlight = true,
                     onClick = { onOpenPlaylist(ALL_SONGS_ID) },
                 )
             }
@@ -131,7 +132,7 @@ fun LibraryScreen(
                 }
                 items(playlists, key = { it.playlist.id }) { item ->
                     LibraryRow(
-                        badge = item.playlist.name.take(1),
+                        coverUri = item.coverUri,
                         title = item.playlist.name,
                         subtitle = "${item.trackCount} 首",
                         onClick = { onOpenPlaylist(item.playlist.id) },
@@ -187,11 +188,10 @@ fun LibraryScreen(
 
 @Composable
 private fun LibraryRow(
-    badge: String,
+    coverUri: String?,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
-    highlight: Boolean = false,
     onDelete: (() -> Unit)? = null,
 ) {
     Row(
@@ -201,29 +201,11 @@ private fun LibraryRow(
             .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(
-                    if (highlight) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = badge.ifBlank { "♪" },
-                style = MaterialTheme.typography.titleMedium,
-                color = if (highlight) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
+        AlbumArtBox(
+            coverUri = coverUri,
+            size = 52.dp,
+            corner = 10.dp,
+        )
 
         Spacer(Modifier.width(16.dp))
 

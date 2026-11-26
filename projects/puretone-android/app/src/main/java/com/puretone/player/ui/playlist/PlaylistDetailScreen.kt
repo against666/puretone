@@ -41,7 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -190,6 +192,7 @@ fun PlaylistDetailScreen(
             ) {
                 itemsIndexed(filtered, key = { _, track -> track.id }) { index, track ->
                     TrackRow(
+                        number = if (query.isBlank()) index + 1 else null,
                         track = track,
                         isCurrent = track.id == playerState.currentTrackId,
                         isAllSongs = viewModel.isAllSongs,
@@ -270,6 +273,7 @@ fun PlaylistDetailScreen(
 
 @Composable
 private fun TrackRow(
+    number: Int?,
     track: Track,
     isCurrent: Boolean,
     isAllSongs: Boolean,
@@ -279,35 +283,31 @@ private fun TrackRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(
+                if (isCurrent) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                } else {
+                    Color.Transparent
+                },
+            )
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isCurrent) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
+        if (number != null) {
             Text(
-                text = track.title.take(1).uppercase(),
-                style = MaterialTheme.typography.titleMedium,
+                text = number.toString(),
+                style = MaterialTheme.typography.bodyMedium,
                 color = if (isCurrent) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
+                    MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(28.dp),
             )
+            Spacer(Modifier.width(14.dp))
         }
-
-        Spacer(Modifier.width(14.dp))
 
         Column(Modifier.weight(1f)) {
             Text(

@@ -10,6 +10,7 @@ data class PlayerUiState(
     val currentTrackId: Long = -1L,
     val title: String = "",
     val artist: String = "",
+    val coverUri: String? = null,
     val durationMs: Long = 0L,
     val positionMs: Long = 0L,
 )

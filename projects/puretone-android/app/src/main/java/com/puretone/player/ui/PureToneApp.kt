@@ -88,6 +88,7 @@ fun PureToneApp(
                     MiniPlayer(
                         title = playerState.title,
                         artist = playerState.artist,
+                        coverUri = playerState.coverUri,
                         isPlaying = playerState.isPlaying,
                         progress = if (playerState.durationMs > 0L) {
                             playerState.positionMs.toFloat() / playerState.durationMs

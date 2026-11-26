@@ -14,6 +14,10 @@ interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<Track>>
 
+    /** 「全部歌曲」的封面同样取最早加入那首，没有封面则为 null */
+    @Query("SELECT coverUri FROM tracks ORDER BY createdAt ASC LIMIT 1")
+    fun observeEarliestCover(): Flow<String?>
+
     @Query("SELECT * FROM tracks WHERE isFavorite = 1 ORDER BY lastPlayedAt DESC, createdAt DESC")
     fun observeFavorites(): Flow<List<Track>>
 

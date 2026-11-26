@@ -35,6 +35,7 @@ import com.puretone.player.R
 fun MiniPlayer(
     title: String,
     artist: String,
+    coverUri: String?,
     isPlaying: Boolean,
     progress: Float,
     onClick: () -> Unit,
@@ -67,19 +68,11 @@ fun MiniPlayer(
                 .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = title.take(1).uppercase().ifBlank { "♪" },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
+            AlbumArtBox(
+                coverUri = coverUri,
+                size = 42.dp,
+                corner = 6.dp,
+            )
 
             Spacer(Modifier.width(12.dp))
 

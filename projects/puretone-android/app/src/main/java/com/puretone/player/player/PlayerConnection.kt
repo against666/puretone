@@ -2,6 +2,7 @@ package com.puretone.player.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -128,6 +129,7 @@ class PlayerConnection(private val context: Context) {
                 currentTrackId = item?.mediaId?.toLongOrNull() ?: -1L,
                 title = item?.mediaMetadata?.title?.toString().orEmpty(),
                 artist = item?.mediaMetadata?.artist?.toString().orEmpty(),
+                coverUri = item?.mediaMetadata?.artworkUri?.toString(),
                 durationMs = c.duration.takeIf { d -> d > 0L } ?: 0L,
                 positionMs = c.currentPosition.coerceAtLeast(0L),
             )
@@ -161,6 +163,7 @@ fun Track.toMediaItem(): MediaItem = MediaItem.Builder()
             .setTitle(title)
             .setArtist(artist)
             .setAlbumTitle(album)
+            .setArtworkUri(coverUri?.let(Uri::parse))
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .build(),

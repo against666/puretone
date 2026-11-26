@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +52,7 @@ import com.puretone.player.data.model.LyricState
 import com.puretone.player.lyric.LyricLine
 import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.indexAt
+import com.puretone.player.ui.components.DotSeekBar
 import com.puretone.player.ui.components.formatDuration
 import kotlinx.coroutines.flow.flowOf
 
@@ -78,9 +78,15 @@ fun PlayerScreen(
         if (raw.isNullOrBlank()) emptyList() else LrcParser.parse(raw, offset)
     }
 
-    var dragPosition by remember { mutableStateOf<Float?>(null) }
-    val duration = state.durationMs.coerceAtLeast(1L)
-    val sliderValue = (dragPosition ?: state.positionMs.toFloat()).coerceIn(0f, duration.toFloat())
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
+    val duration = state.durationMs
+    val baseFraction = if (duration > 0L) {
+        (state.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val shownFraction = dragFraction ?: baseFraction
+    val shownPositionMs = if (duration > 0L) (shownFraction * duration).toLong() else 0L
 
     Column(
         modifier = modifier
@@ -135,27 +141,28 @@ fun PlayerScreen(
             )
         }
 
-        Slider(
-            value = sliderValue,
-            onValueChange = { dragPosition = it },
-            onValueChangeFinished = {
-                dragPosition?.let { app.player.seekTo(it.toLong()) }
-                dragPosition = null
+        DotSeekBar(
+            fraction = shownFraction,
+            enabled = state.hasMedia && duration > 0L,
+            onFractionChange = { dragFraction = it },
+            onSeekCommit = { fraction ->
+                if (duration > 0L) {
+                    app.player.seekTo((fraction * duration).toLong())
+                }
+                dragFraction = null
             },
-            valueRange = 0f..duration.toFloat(),
-            enabled = state.hasMedia,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Row(Modifier.fillMaxWidth()) {
             Text(
-                text = formatDuration(sliderValue.toLong()),
+                text = formatDuration(shownPositionMs),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.weight(1f))
             Text(
-                text = if (state.durationMs > 0L) formatDuration(state.durationMs) else "--:--",
+                text = if (duration > 0L) formatDuration(duration) else "--:--",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

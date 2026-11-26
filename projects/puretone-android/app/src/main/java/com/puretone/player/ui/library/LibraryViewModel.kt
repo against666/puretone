@@ -30,6 +30,10 @@ class LibraryViewModel(
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** 「全部歌曲」的封面：最早加入那首的专辑图 */
+    val allSongsCover: StateFlow<String?> = musicRepository.observeEarliestCover()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     private val _importing = MutableStateFlow(false)
     val importing: StateFlow<Boolean> = _importing.asStateFlow()
 
