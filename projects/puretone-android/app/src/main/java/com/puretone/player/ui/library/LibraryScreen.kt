@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,13 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -28,11 +25,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,25 +42,24 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.puretone.player.PureToneApplication
-import com.puretone.player.data.db.Track
-import com.puretone.player.ui.components.formatDuration
+import com.puretone.player.core.ALL_SONGS_ID
+import com.puretone.player.data.db.PlaylistWithCount
 
 @Composable
 fun LibraryScreen(
-    onOpenPlayer: () -> Unit,
+    onOpenPlaylist: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PureToneApplication
     val viewModel: LibraryViewModel = viewModel(factory = LibraryViewModel.factory(app))
 
-    val tracks by viewModel.tracks.collectAsStateWithLifecycle()
-    val playerState by app.player.state.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val trackCount by viewModel.trackCount.collectAsStateWithLifecycle()
     val importing by viewModel.importing.collectAsStateWithLifecycle()
 
-    var pendingDelete by remember { mutableStateOf<Track?>(null) }
-
-    LaunchedEffect(Unit) { app.player.connect() }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<PlaylistWithCount?>(null) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments(),
@@ -80,13 +75,11 @@ fun LibraryScreen(
         }
     }
 
-    val openPicker = { picker.launch(arrayOf("audio/*")) }
-
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 12.dp, top = 28.dp, bottom = 4.dp),
+                .padding(start = 24.dp, end = 8.dp, top = 28.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -96,64 +89,91 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = if (importing) "正在导入…" else "${tracks.size} 首",
+                    text = if (importing) {
+                        "正在导入…"
+                    } else {
+                        "$trackCount 首歌 · ${playlists.size} 个歌单"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = openPicker, enabled = !importing) {
-                Text("导入本地音乐")
+            TextButton(onClick = { picker.launch(arrayOf("audio/*")) }, enabled = !importing) {
+                Text("导入")
+            }
+            TextButton(onClick = { showCreateDialog = true }) {
+                Text("新建歌单")
             }
         }
 
-        if (playerState.hasMedia) {
-            NowPlayingBar(
-                title = playerState.title,
-                artist = playerState.artist,
-                isPlaying = playerState.isPlaying,
-                onClick = onOpenPlayer,
-            )
-        }
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+        ) {
+            item {
+                LibraryRow(
+                    badge = "♪",
+                    title = "全部歌曲",
+                    subtitle = "$trackCount 首",
+                    highlight = true,
+                    onClick = { onOpenPlaylist(ALL_SONGS_ID) },
+                )
+            }
 
-        if (tracks.isEmpty()) {
-            EmptyLibrary(onImport = openPicker)
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 16.dp),
-            ) {
-                itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
-                    TrackRow(
-                        track = track,
-                        isCurrent = track.id == playerState.currentTrackId,
-                        onClick = {
-                            app.player.play(tracks, index)
-                            onOpenPlayer()
-                        },
-                        onDelete = { pendingDelete = track },
+            if (playlists.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "我的歌单",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 24.dp, top = 20.dp, bottom = 6.dp),
                     )
-                    if (index != tracks.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 80.dp, end = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
+                }
+                items(playlists, key = { it.playlist.id }) { item ->
+                    LibraryRow(
+                        badge = item.playlist.name.take(1),
+                        title = item.playlist.name,
+                        subtitle = "${item.trackCount} 首",
+                        onClick = { onOpenPlaylist(item.playlist.id) },
+                        onDelete = { pendingDelete = item },
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 84.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+            } else {
+                item {
+                    Text(
+                        text = "还没有歌单。点右上角「新建歌单」开始整理。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
+                    )
                 }
             }
         }
     }
 
-    pendingDelete?.let { track ->
+    if (showCreateDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialog = false },
+            onConfirm = { name ->
+                viewModel.createPlaylist(name)
+                showCreateDialog = false
+            },
+        )
+    }
+
+    pendingDelete?.let { item ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("删除这首歌？") },
-            text = {
-                Text("《${track.title}》将从音乐库移除，同时删除 Music/PureTone 下的音频文件。此操作不可撤销。")
-            },
+            title = { Text("删除歌单？") },
+            text = { Text("「${item.playlist.name}」会被删除，歌单内的歌曲仍保留在音乐库。") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.delete(track)
+                        viewModel.deletePlaylist(item.playlist.id)
                         pendingDelete = null
                     },
                 ) { Text("删除") }
@@ -166,11 +186,13 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun TrackRow(
-    track: Track,
-    isCurrent: Boolean,
+private fun LibraryRow(
+    badge: String,
+    title: String,
+    subtitle: String,
     onClick: () -> Unit,
-    onDelete: () -> Unit,
+    highlight: Boolean = false,
+    onDelete: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -181,10 +203,10 @@ private fun TrackRow(
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
+                .size(52.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .background(
-                    if (isCurrent) {
+                    if (highlight) {
                         MaterialTheme.colorScheme.primaryContainer
                     } else {
                         MaterialTheme.colorScheme.surfaceVariant
@@ -193,9 +215,9 @@ private fun TrackRow(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = track.title.take(1).uppercase(),
+                text = badge.ifBlank { "♪" },
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrent) {
+                color = if (highlight) {
                     MaterialTheme.colorScheme.onPrimaryContainer
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -203,105 +225,68 @@ private fun TrackRow(
             )
         }
 
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(16.dp))
 
         Column(Modifier.weight(1f)) {
             Text(
-                text = track.title,
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrent) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
             Text(
-                text = "${track.artist} · ${formatDuration(track.durationMs)}",
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
         }
 
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Filled.Delete,
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun NowPlayingBar(
-    title: String,
-    artist: String,
-    isPlaying: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(14.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = if (isPlaying) "正在播放" else "已暂停",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                )
-                Text(
-                    text = "$title — $artist",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        if (onDelete != null) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "删除歌单",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(12.dp))
+        } else {
             Text(
-                text = "打开",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                text = "›",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
     }
 }
 
 @Composable
-private fun EmptyLibrary(onImport: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "还没有歌",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "从手机里选几个音频文件，会复制到 Music/PureTone。\n卸载 App 也不会丢。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(20.dp))
-        TextButton(onClick = onImport) { Text("选择音频文件") }
-    }
+private fun CreatePlaylistDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建歌单") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                placeholder = { Text("歌单名称") },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.isNotBlank(),
+            ) { Text("创建") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }

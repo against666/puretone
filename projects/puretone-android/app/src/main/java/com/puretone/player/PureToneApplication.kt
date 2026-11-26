@@ -5,6 +5,7 @@ import com.puretone.player.data.db.PureToneDatabase
 import com.puretone.player.data.file.LocalImporter
 import com.puretone.player.data.prefs.AppPreferences
 import com.puretone.player.data.repo.MusicRepository
+import com.puretone.player.data.repo.PlaylistRepository
 import com.puretone.player.player.PlayerConnection
 
 class PureToneApplication : Application() {
@@ -25,4 +26,11 @@ class PureToneApplication : Application() {
 
     /** 与播放服务的连接，跟着进程存活 */
     val player: PlayerConnection by lazy { PlayerConnection(this) }
+
+    val playlistRepository: PlaylistRepository by lazy {
+        PlaylistRepository(
+            playlistDao = database.playlistDao(),
+            playlistTrackDao = database.playlistTrackDao(),
+        )
+    }
 }
