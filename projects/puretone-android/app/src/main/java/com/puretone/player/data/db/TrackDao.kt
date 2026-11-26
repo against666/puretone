@@ -30,6 +30,13 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE sourceType = :type AND sourceId = :sourceId LIMIT 1")
     suspend fun findBySource(type: SourceType, sourceId: String): Track?
 
+    /** 本地导入去重：同一首歌反复导入不应产生多条记录 */
+    @Query(
+        "SELECT * FROM tracks WHERE sourceType = 'local' AND title = :title " +
+            "AND artist = :artist AND durationMs = :durationMs LIMIT 1",
+    )
+    suspend fun findLocalDuplicate(title: String, artist: String, durationMs: Long): Track?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(track: Track): Long
 
