@@ -3,8 +3,11 @@ package com.puretone.player
 import android.app.Application
 import com.puretone.player.data.db.PureToneDatabase
 import com.puretone.player.data.file.LocalImporter
+import com.puretone.player.data.file.OnlineTrackSaver
+import com.puretone.player.data.online.OnlineMusicApi
 import com.puretone.player.data.prefs.AppPreferences
 import com.puretone.player.data.repo.MusicRepository
+import com.puretone.player.data.repo.OnlineMusicRepository
 import com.puretone.player.data.repo.PlaylistRepository
 import com.puretone.player.data.update.UpdateChecker
 import com.puretone.player.player.PlayerConnection
@@ -28,6 +31,16 @@ class PureToneApplication : Application() {
             context = this,
             trackDao = database.trackDao(),
             importer = LocalImporter(this),
+        )
+    }
+
+    /** 在线搜索与下载 */
+    val onlineRepository: OnlineMusicRepository by lazy {
+        OnlineMusicRepository(
+            context = this,
+            api = OnlineMusicApi(),
+            saver = OnlineTrackSaver(this),
+            trackDao = database.trackDao(),
         )
     }
 

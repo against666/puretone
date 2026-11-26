@@ -41,6 +41,10 @@ interface TrackDao {
     )
     suspend fun findLocalDuplicate(title: String, artist: String, durationMs: Long): Track?
 
+    /** 按「音源 + 平台歌曲ID」查重，在线下载前用 */
+    @Query("SELECT * FROM tracks WHERE sourceType = :type AND sourceId = :songId LIMIT 1")
+    suspend fun findOnlineDuplicate(type: String, songId: String): Track?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(track: Track): Long
 

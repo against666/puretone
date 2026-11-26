@@ -40,19 +40,27 @@ fun rememberAlbumArt(uriString: String?): ImageBitmap? {
         } else {
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val uri = Uri.parse(uriString)
-                    val resolver = context.contentResolver
-
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    resolver.openInputStream(uri)?.use {
-                        BitmapFactory.decodeStream(it, null, bounds)
-                    }
 
-                    val options = BitmapFactory.Options().apply {
-                        inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, TARGET_PX)
-                    }
-                    resolver.openInputStream(uri)?.use {
-                        BitmapFactory.decodeStream(it, null, options)
+                    // 封面可能来自 MediaStore（content://）也可能是私有目录里的文件路径
+                    if (uriString.startsWith("content:")) {
+                        val uri = Uri.parse(uriString)
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it, null, bounds)
+                        }
+                        val options = BitmapFactory.Options().apply {
+                            inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, TARGET_PX)
+                        }
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it, null, options)
+                        }
+                    } else {
+                        val path = uriString.removePrefix("file://")
+                        BitmapFactory.decodeFile(path, bounds)
+                        val options = BitmapFactory.Options().apply {
+                            inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, TARGET_PX)
+                        }
+                        BitmapFactory.decodeFile(path, options)
                     }
                 }.getOrNull()?.asImageBitmap()
             }

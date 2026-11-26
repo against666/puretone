@@ -1,10 +1,18 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+// 密钥放在 local.properties（已被 .gitignore 排除），打进 BuildConfig，
+// 代码里用 BuildConfig.PURETONE_API_KEY 读取
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -19,6 +27,12 @@ android {
         versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "PURETONE_API_KEY",
+            "\"${localProperties.getProperty("PURETONE_API_KEY", "")}\"",
+        )
     }
 
     buildTypes {
