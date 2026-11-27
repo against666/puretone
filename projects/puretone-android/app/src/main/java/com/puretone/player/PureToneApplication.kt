@@ -26,7 +26,7 @@ class PureToneApplication : Application() {
         super.onCreate()
         // 把上次远程下发的密钥装进内存；启动时静默检查更新，失败不打扰用户
         appScope.launch { ApiKeyStore.update(preferences.currentRemoteApiKey()) }
-        updateChecker.checkInBackground()
+        updateChecker.checkOnLaunch()
     }
 
     /** 全进程共用一个数据库实例，首次访问时才真正打开 */
