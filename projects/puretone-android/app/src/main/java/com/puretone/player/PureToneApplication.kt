@@ -13,6 +13,7 @@ import com.puretone.player.data.repo.OnlineMusicRepository
 import com.puretone.player.data.repo.PlaylistRepository
 import com.puretone.player.data.update.UpdateChecker
 import com.puretone.player.player.PlayerConnection
+import com.puretone.player.player.PreviewPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,6 +58,9 @@ class PureToneApplication : Application() {
             preferences = preferences,
         )
     }
+
+    /** 在线试听用的独立播放器，与主播放器互不干扰 */
+    val previewPlayer: PreviewPlayer by lazy { PreviewPlayer(this) }
 
     /** 与播放服务的连接，跟着进程存活 */
     val player: PlayerConnection by lazy { PlayerConnection(this, preferences) }

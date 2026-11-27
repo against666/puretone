@@ -1,8 +1,10 @@
 package com.puretone.player.ui.search
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -29,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +51,7 @@ import com.puretone.player.data.db.PlaylistWithCount
 import com.puretone.player.data.db.Track
 import com.puretone.player.data.model.SourceType
 import com.puretone.player.data.online.OnlineSong
+import com.puretone.player.player.PreviewState
 import com.puretone.player.ui.components.AlbumArtBox
 
 /**
@@ -72,6 +78,17 @@ fun SearchScreen(
     val downloaded by onlineViewModel.downloaded.collectAsStateWithLifecycle()
     val message by onlineViewModel.message.collectAsStateWithLifecycle()
     val onlineReadOnly by app.preferences.onlineReadOnly.collectAsStateWithLifecycle(false)
+    val previewState by onlineViewModel.previewState.collectAsStateWithLifecycle()
+    val mainPlayerState by app.player.state.collectAsStateWithLifecycle()
+
+    // 主播放器开始放歌（用户从别处点了播放）时，试听让位
+    LaunchedEffect(mainPlayerState.isPlaying) {
+        if (mainPlayerState.isPlaying) onlineViewModel.stopPreview()
+    }
+    // 离开搜索页就停掉试听，不让它跟着人走
+    DisposableEffect(Unit) {
+        onDispose { onlineViewModel.stopPreview() }
+    }
 
     val context = LocalContext.current
     LaunchedEffect(message) {
@@ -175,6 +192,9 @@ fun SearchScreen(
                 results = onlineResults[cacheKey].orEmpty(),
                 downloading = downloading,
                 downloaded = downloaded,
+                previewKey = previewState.key,
+                previewStatus = previewState.status,
+                onPreview = onlineViewModel::togglePreview,
                 onDownload = onlineViewModel::download,
             )
         }
@@ -289,6 +309,9 @@ private fun OnlineResults(
     results: List<OnlineSong>,
     downloading: Set<String>,
     downloaded: Set<String>,
+    previewKey: String?,
+    previewStatus: PreviewState.Status,
+    onPreview: (OnlineSong) -> Unit,
     onDownload: (OnlineSong) -> Unit,
 ) {
     when {
@@ -309,12 +332,14 @@ private fun OnlineResults(
             items(results, key = { it.key }) { song ->
                 OnlineSongRow(
                     song = song,
-                    state = when {
+                    downloadState = when {
                         song.key in downloaded -> DownloadState.Done
                         song.key in downloading -> DownloadState.Downloading
                         else -> DownloadState.Idle
                     },
-                    onClick = { onDownload(song) },
+                    previewStatus = if (previewKey == song.key) previewStatus else null,
+                    onPreview = { onPreview(song) },
+                    onDownload = { onDownload(song) },
                 )
             }
         }
@@ -323,19 +348,65 @@ private fun OnlineResults(
 
 private enum class DownloadState { Idle, Downloading, Done }
 
+/** 暂停符号：material-icons-core 里没有 Pause，用两根圆角竖条画，省掉 extended 依赖 */
+@Composable
+private fun PauseGlyph(tint: androidx.compose.ui.graphics.Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(2) {
+            Box(
+                Modifier
+                    .size(width = 3.dp, height = 14.dp)
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(tint),
+            )
+        }
+    }
+}
+
 @Composable
 private fun OnlineSongRow(
     song: OnlineSong,
-    state: DownloadState,
-    onClick: () -> Unit,
+    downloadState: DownloadState,
+    previewStatus: PreviewState.Status?,
+    onPreview: () -> Unit,
+    onDownload: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = state == DownloadState.Idle, onClick = onClick)
+            .clickable(onClick = onPreview)
             .padding(horizontal = 24.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 左侧试听：点行任意位置也能触发，图标给出明确反馈
+        Box(
+            modifier = Modifier.size(36.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (previewStatus) {
+                PreviewState.Status.LOADING -> CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                )
+
+                PreviewState.Status.PLAYING -> PauseGlyph(
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+
+                PreviewState.Status.PAUSED -> Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "继续试听",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+
+                else -> Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "试听",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = song.title,
@@ -356,13 +427,18 @@ private fun OnlineSongRow(
             )
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(8.dp))
 
-        when (state) {
+        when (downloadState) {
+            // 下载是独立按钮：点它不触发试听
             DownloadState.Idle -> Text(
                 text = "下载",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onDownload)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
             )
 
             DownloadState.Downloading -> CircularProgressIndicator(

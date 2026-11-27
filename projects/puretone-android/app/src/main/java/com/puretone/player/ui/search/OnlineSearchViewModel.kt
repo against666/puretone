@@ -10,6 +10,8 @@ import com.puretone.player.PureToneApplication
 import com.puretone.player.data.model.SourceType
 import com.puretone.player.data.online.OnlineSong
 import com.puretone.player.data.repo.OnlineMusicRepository
+import com.puretone.player.player.PreviewPlayer
+import com.puretone.player.player.PreviewState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.launch
  */
 class OnlineSearchViewModel(
     private val repository: OnlineMusicRepository,
+    private val previewPlayer: PreviewPlayer,
 ) : ViewModel() {
 
     enum class Status { IDLE, LOADING, DONE, FAILED }
@@ -43,6 +46,12 @@ class OnlineSearchViewModel(
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    /** 试听状态，直接来自试听播放器 */
+    val previewState: StateFlow<PreviewState> = previewPlayer.state
+
+    /** 试听地址缓存，同一首反复点不重复请求 */
+    private val previewUrls = mutableMapOf<String, String>()
 
     private var searchJob: Job? = null
 
@@ -107,6 +116,36 @@ class OnlineSearchViewModel(
         }
     }
 
+    /**
+     * 点行试听：地址没取过先取（会转圈），取到就播/暂停。
+     * 试听不落盘、不进队列，和主播放器互不干扰。
+     */
+    fun togglePreview(song: OnlineSong) {
+        previewUrls[song.key]?.let { url ->
+            previewPlayer.toggle(song.key, url)
+            return
+        }
+        if (previewState.value.key == song.key &&
+            previewState.value.status == PreviewState.Status.LOADING
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+            previewPlayer.loading(song.key)
+            val url = repository.streamUrl(song)
+            if (url.isNullOrBlank()) {
+                previewPlayer.stop()
+                _message.value = "这首歌暂时无法试听，可以直接下载试试"
+                return@launch
+            }
+            previewUrls[song.key] = url
+            previewPlayer.toggle(song.key, url)
+        }
+    }
+
+    fun stopPreview() = previewPlayer.stop()
+
     fun consumeMessage() {
         _message.value = null
     }
@@ -115,7 +154,7 @@ class OnlineSearchViewModel(
         private const val TAG = "OnlineSearch"
 
         fun factory(app: PureToneApplication): ViewModelProvider.Factory = viewModelFactory {
-            initializer { OnlineSearchViewModel(app.onlineRepository) }
+            initializer { OnlineSearchViewModel(app.onlineRepository, app.previewPlayer) }
         }
     }
 }
