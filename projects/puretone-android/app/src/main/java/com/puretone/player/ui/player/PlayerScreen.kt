@@ -166,12 +166,12 @@ fun PlayerScreen(
         }
         DotSeekBar(
             fraction = shownFraction,
-            enabled = state.hasMedia && duration > 0L,
+            // 时长在提交时由播放器实时解析（见 seekToFraction），
+            // 不再因为个别歌读不到时长而把整条拖动禁用
+            enabled = state.hasMedia,
             onFractionChange = { dragFraction = it },
             onSeekCommit = { fraction ->
-                if (duration > 0L) {
-                    app.player.seekTo((fraction * duration).toLong())
-                }
+                app.player.seekToFraction(fraction)
                 dragFraction = null
             },
             modifier = Modifier.fillMaxWidth(),

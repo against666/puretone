@@ -1,6 +1,7 @@
 package com.puretone.player.player
 
 import android.content.ComponentName
+import android.util.Log
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
@@ -52,12 +53,35 @@ class PlayerConnection(
     private val _queue = MutableStateFlow<List<Track>>(emptyList())
     val queue: StateFlow<List<Track>> = _queue.asStateFlow()
 
+    private val shuffleEngine = ShuffleEngine()
+
+    /** 随机模式下点「上一首」要回到哪儿：记下每次跳转的来路 */
+    private val playedHistory = ArrayDeque<Int>()
+
+    /** 队列各首的时长（入库时读的值），播放器报不出时长时兜底用 */
+    private val queueDurations = mutableMapOf<Long, Long>()
+
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) = sync()
 
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = sync()
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            sync()
+            // 随机模式下，歌曲自然播完自动续播时不能顺序走队列，
+            // 要立刻按权重随机跳一首（reason=SEEK 是我们自己跳的，不拦）
+            if (_playMode.value == PlayMode.SHUFFLE &&
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+            ) {
+                shuffleNext(recordHistory = true)
+            }
+        }
 
-        override fun onPlaybackStateChanged(playbackState: Int) = sync()
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            sync()
+            // 整个队列播完（repeatMode=OFF 时最后一首结束走这里）
+            if (playbackState == Player.STATE_ENDED && _playMode.value == PlayMode.SHUFFLE) {
+                shuffleNext(recordHistory = false)
+            }
+        }
 
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = sync()
 
@@ -108,6 +132,10 @@ class PlayerConnection(
 
         val items = tracks.map { it.toMediaItem() }
         _queue.value = tracks
+        shuffleEngine.reset(tracks.map { it.id })
+        playedHistory.clear()
+        queueDurations.clear()
+        tracks.forEach { queueDurations[it.id] = it.durationMs }
         c.setMediaItems(items, startIndex.coerceIn(0, items.lastIndex), 0L)
         c.prepare()
         c.play()
@@ -146,8 +174,12 @@ class PlayerConnection(
             }
 
             PlayMode.SHUFFLE -> {
-                c.shuffleModeEnabled = true
-                c.repeatMode = Player.REPEAT_MODE_ALL
+                // 顺序交给我们自己的加权引擎（见 shuffleNext），
+                // ExoPlayer 自带的 shuffle 是普通乱序，实现不了「没抽到的权重递增」
+                c.shuffleModeEnabled = false
+                c.repeatMode = Player.REPEAT_MODE_OFF
+                shuffleEngine.reset(_queue.value.map { it.id })
+                playedHistory.clear()
             }
         }
     }
@@ -158,17 +190,68 @@ class PlayerConnection(
     }
 
     fun next() {
-        controller?.seekToNextMediaItem()
+        val c = controller ?: return
+        if (_playMode.value == PlayMode.SHUFFLE) {
+            shuffleNext(recordHistory = true)
+            return
+        }
+        c.seekToNextMediaItem()
+    }
+
+    /** 随机模式下的下一首：按权重随机，不重复刚播过的 */
+    private fun shuffleNext(recordHistory: Boolean) {
+        val c = controller ?: return
+        val currentId = c.currentMediaItem?.mediaId?.toLongOrNull() ?: -1L
+        val pickedId = shuffleEngine.pick(excludeId = currentId) ?: return
+
+        if (recordHistory) {
+            val current = c.currentMediaItemIndex
+            playedHistory.addLast(current)
+            if (playedHistory.size > 50) playedHistory.removeFirst()
+        }
+        shuffleEngine.onPicked(pickedId)
+
+        val target = _queue.value.indexOfFirst { it.id == pickedId }
+        if (target < 0) return
+        Log.d(
+            TAG,
+            "随机播放: 权重=${shuffleEngine.weightOf(pickedId)} " +
+                "跳到第${target + 1}首《${_queue.value[target].title}》",
+        )
+        c.seekTo(target, 0L)
+        if (!c.isPlaying) c.play()
     }
 
     /** 播放超过 3 秒时，「上一首」先回到本曲开头，符合主流播放器习惯 */
     fun previous() {
         val c = controller ?: return
+        // 随机模式没有固定的「上一首」，按跳转历史回退
+        if (_playMode.value == PlayMode.SHUFFLE && playedHistory.isNotEmpty()) {
+            val index = playedHistory.removeLast()
+            c.seekTo(index, 0L)
+            if (!c.isPlaying) c.play()
+            return
+        }
         if (c.currentPosition > 3_000L) {
             c.seekTo(0L)
         } else {
             c.seekToPreviousMediaItem()
         }
+    }
+
+    /**
+     * 拖动进度条提交时用：时长以播放器当前为准（ExoPlayer 对媒体实时的认知），
+     * 报不出来再退回入库时读的值。旧逻辑依赖界面上的 durationMs，
+     * 个别歌读时长失败时会卡死在 0，进度条被禁用——这就是纯音乐下拖动没反应的根源。
+     */
+    fun seekToFraction(fraction: Float) {
+        val c = controller ?: return
+        val currentId = c.currentMediaItem?.mediaId?.toLongOrNull() ?: return
+        val duration = c.duration.takeIf { it > 0L }
+            ?: queueDurations[currentId]?.takeIf { it > 0L }
+            ?: return
+        val targetMs = (fraction.coerceIn(0f, 1f) * duration).toLong().coerceIn(0L, duration)
+        c.seekTo(targetMs)
     }
 
     fun seekTo(positionMs: Long) {
@@ -185,16 +268,20 @@ class PlayerConnection(
     private fun sync() {
         val c = controller ?: return
         val item = c.currentMediaItem
+        val currentTrackId = item?.mediaId?.toLongOrNull() ?: -1L
         _state.update {
             it.copy(
                 isConnected = true,
                 isPlaying = c.isPlaying,
                 hasMedia = item != null,
-                currentTrackId = item?.mediaId?.toLongOrNull() ?: -1L,
+                currentTrackId = currentTrackId,
                 title = item?.mediaMetadata?.title?.toString().orEmpty(),
                 artist = item?.mediaMetadata?.artist?.toString().orEmpty(),
                 coverUri = item?.mediaMetadata?.artworkUri?.toString(),
-                durationMs = c.duration.takeIf { d -> d > 0L } ?: 0L,
+                // 播放器认不出时长（个别 VBR MP3 会这样）时，退回入库时读到的值
+                durationMs = c.duration.takeIf { d -> d > 0L }
+                    ?: queueDurations[currentTrackId]?.takeIf { d -> d > 0L }
+                    ?: 0L,
                 positionMs = c.currentPosition.coerceAtLeast(0L),
             )
         }
@@ -233,3 +320,5 @@ fun Track.toMediaItem(): MediaItem = MediaItem.Builder()
             .build(),
     )
     .build()
+
+private const val TAG = "PlayerConnection"
