@@ -15,6 +15,13 @@ val localProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+// 签名信息在仓库外的 keystore/keystore.properties（已被 .gitignore 排除），
+// 没有该文件时 release 包不签名，只能本机安装不能分发
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("../../keystore/keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.puretone.player"
     compileSdk = 36
@@ -23,8 +30,8 @@ android {
         applicationId = "com.puretone.player"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -33,6 +40,17 @@ android {
             "PURETONE_API_KEY",
             "\"${localProperties.getProperty("PURETONE_API_KEY", "")}\"",
         )
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -47,6 +65,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

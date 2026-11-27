@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,18 +98,20 @@ fun SearchScreen(
         )
         Spacer(Modifier.height(10.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+        // 芯片放横向滚动列表：窄屏也放得下五个音源，不会把「酷我」挤成竖排
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SourceChip(
-                label = "本地",
-                selected = source == SourceType.LOCAL,
-                onClick = { source = SourceType.LOCAL },
-            )
-            SourceType.searchable.forEach { item ->
+            item {
+                SourceChip(
+                    label = "本地",
+                    selected = source == SourceType.LOCAL,
+                    onClick = { source = SourceType.LOCAL },
+                )
+            }
+            items(SourceType.searchable) { item ->
                 SourceChip(
                     label = item.displayName.removeSuffix("音乐"),
                     selected = source == item,
