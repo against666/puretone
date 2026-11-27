@@ -70,6 +70,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 从后台切回来补一次节流检查：App 更新配置可能在进程还活着时变了
+        app.updateChecker.checkOnForeground()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
