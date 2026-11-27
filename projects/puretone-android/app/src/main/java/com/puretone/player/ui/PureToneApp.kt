@@ -132,6 +132,7 @@ fun PureToneApp(
             composable(Routes.SEARCH) {
                 SearchScreen(
                     onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                    onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                 )
             }
             composable(Routes.SETTINGS) {

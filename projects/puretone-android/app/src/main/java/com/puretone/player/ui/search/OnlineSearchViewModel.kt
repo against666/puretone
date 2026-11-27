@@ -9,8 +9,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.model.SourceType
 import com.puretone.player.data.online.OnlineSong
+import com.puretone.player.data.online.OnlineSongDetail
 import com.puretone.player.data.repo.OnlineMusicRepository
 import com.puretone.player.player.PreviewPlayer
+import com.puretone.player.player.PreviewSession
 import com.puretone.player.player.PreviewState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,8 +52,8 @@ class OnlineSearchViewModel(
     /** 试听状态，直接来自试听播放器 */
     val previewState: StateFlow<PreviewState> = previewPlayer.state
 
-    /** 试听地址缓存，同一首反复点不重复请求 */
-    private val previewUrls = mutableMapOf<String, String>()
+    /** 试听信息缓存（地址 + 歌词），同一首反复点不重复请求 */
+    private val previewDetails = mutableMapOf<String, OnlineSongDetail>()
 
     private var searchJob: Job? = null
 
@@ -116,13 +118,31 @@ class OnlineSearchViewModel(
         }
     }
 
-    /**
-     * 点行试听：地址没取过先取（会转圈），取到就播/暂停。
-     * 试听不落盘、不进队列，和主播放器互不干扰。
-     */
+    /** 左侧按钮：播放/暂停当前试听，或开始试听这一首 */
     fun togglePreview(song: OnlineSong) {
-        previewUrls[song.key]?.let { url ->
-            previewPlayer.toggle(song.key, url)
+        val current = previewState.value
+        if (current.key == song.key && current.session != null) {
+            previewPlayer.toggle()
+            return
+        }
+        loadAndStart(song)
+    }
+
+    /** 点中间信息区：进入歌词页前确保这首歌正在试听（暂停状态则继续播） */
+    fun playPreview(song: OnlineSong) {
+        val current = previewState.value
+        if (current.key == song.key && current.session != null) {
+            if (current.status == PreviewState.Status.PAUSED) previewPlayer.toggle()
+            return
+        }
+        loadAndStart(song)
+    }
+
+    fun stopPreview() = previewPlayer.stop()
+
+    private fun loadAndStart(song: OnlineSong) {
+        previewDetails[song.key]?.let { detail ->
+            previewPlayer.start(sessionOf(song, detail), detail.mp3Url!!)
             return
         }
         if (previewState.value.key == song.key &&
@@ -133,18 +153,24 @@ class OnlineSearchViewModel(
 
         viewModelScope.launch {
             previewPlayer.loading(song.key)
-            val url = repository.streamUrl(song)
-            if (url.isNullOrBlank()) {
+            val detail = repository.previewDetail(song)
+            if (detail?.mp3Url.isNullOrBlank()) {
                 previewPlayer.stop()
                 _message.value = "这首歌暂时无法试听，可以直接下载试试"
                 return@launch
             }
-            previewUrls[song.key] = url
-            previewPlayer.toggle(song.key, url)
+            previewDetails[song.key] = detail!!
+            previewPlayer.start(sessionOf(song, detail), detail.mp3Url)
         }
     }
 
-    fun stopPreview() = previewPlayer.stop()
+    private fun sessionOf(song: OnlineSong, detail: OnlineSongDetail) = PreviewSession(
+        key = song.key,
+        title = song.title.ifBlank { detail.song.title },
+        artist = song.artist.ifBlank { detail.song.artist },
+        album = song.album.ifBlank { detail.song.album },
+        lrc = detail.lrc,
+    )
 
     fun consumeMessage() {
         _message.value = null

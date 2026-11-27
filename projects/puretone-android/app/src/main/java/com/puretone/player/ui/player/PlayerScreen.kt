@@ -61,6 +61,7 @@ import com.puretone.player.data.model.LyricState
 import com.puretone.player.data.prefs.LyricSize
 import com.puretone.player.data.prefs.PlayMode
 import com.puretone.player.lyric.LrcParser
+import com.puretone.player.player.PreviewState
 import com.puretone.player.lyric.LyricLine
 import com.puretone.player.lyric.indexAt
 import com.puretone.player.ui.components.AlbumArtBox
@@ -94,6 +95,23 @@ fun PlayerScreen(
         val offset = (track?.offsetMs ?: 0) + lyricOffsetMs
         if (raw.isNullOrBlank()) emptyList() else LrcParser.parse(raw, offset)
     }
+    val preview by app.previewPlayer.state.collectAsStateWithLifecycle()
+
+    // 试听中：这个页面切换成试听模式（同一套歌词/进度/控制，数据源换成试听播放器）
+    if (preview.session != null) {
+        PreviewPlayerContent(
+            preview = preview,
+            lyricSize = lyricSize,
+            lyricOffsetMs = lyricOffsetMs,
+            onBack = onBack,
+            onToggle = app.previewPlayer::toggle,
+            onSeekMs = app.previewPlayer::seekTo,
+            onSeekFraction = app.previewPlayer::seekToFraction,
+            modifier = modifier,
+        )
+        return
+    }
+
     var showQueue by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val duration = state.durationMs
@@ -599,6 +617,168 @@ private fun NoLyricsPanel(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 试听模式：歌词、进度、播放控制全部绑定到试听播放器 */
+@Composable
+private fun PreviewPlayerContent(
+    preview: PreviewState,
+    lyricSize: LyricSize,
+    lyricOffsetMs: Int,
+    onBack: () -> Unit,
+    onToggle: () -> Unit,
+    onSeekMs: (Long) -> Unit,
+    onSeekFraction: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val session = preview.session ?: return
+    val lyricLines = remember(session.lrc, lyricOffsetMs) {
+        val raw = session.lrc
+        if (raw.isNullOrBlank()) emptyList() else LrcParser.parse(raw, lyricOffsetMs)
+    }
+
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
+    val duration = preview.durationMs
+    val baseFraction = if (duration > 0L) {
+        (preview.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val shownFraction = dragFraction ?: baseFraction
+    val shownPositionMs = if (duration > 0L) (shownFraction * duration).toLong() else 0L
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+    ) {
+        TextButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) {
+            Text("← 返回")
+        }
+
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(96.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = session.title.take(1).uppercase().ifBlank { "♪" },
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = session.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = session.artist.ifBlank { session.album },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (lyricLines.isNotEmpty()) {
+            LyricsPanel(
+                lines = lyricLines,
+                positionMs = preview.positionMs,
+                scale = lyricSize.scale,
+                onSeek = onSeekMs,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+        } else {
+            NoLyricsPanel(
+                lyricState = if (session.lrc.isNullOrBlank()) {
+                    com.puretone.player.data.model.LyricState.MISSING
+                } else {
+                    com.puretone.player.data.model.LyricState.PLAIN
+                },
+                title = session.title,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+        }
+
+        DotSeekBar(
+            fraction = shownFraction,
+            enabled = preview.status != PreviewState.Status.LOADING,
+            onFractionChange = { dragFraction = it },
+            onSeekCommit = { fraction ->
+                onSeekFraction(fraction)
+                dragFraction = null
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                text = formatDuration(shownPositionMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = if (duration > 0L) formatDuration(duration) else "--:--",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable { onToggle() },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (preview.status == PreviewState.Status.PLAYING) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_pause),
+                    contentDescription = "暂停",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(32.dp),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "播放",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "在线试听 · 未保存到音乐库",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 20.dp),
         )
     }
 }
