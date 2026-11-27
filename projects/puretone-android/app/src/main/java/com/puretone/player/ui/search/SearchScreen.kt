@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,7 +24,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +70,7 @@ fun SearchScreen(
     val downloading by onlineViewModel.downloading.collectAsStateWithLifecycle()
     val downloaded by onlineViewModel.downloaded.collectAsStateWithLifecycle()
     val message by onlineViewModel.message.collectAsStateWithLifecycle()
+    val onlineReadOnly by app.preferences.onlineReadOnly.collectAsStateWithLifecycle(false)
 
     val context = LocalContext.current
     LaunchedEffect(message) {
@@ -142,6 +146,16 @@ fun SearchScreen(
 
         Spacer(Modifier.height(12.dp))
 
+        if (source != SourceType.LOCAL && onlineReadOnly) {
+            ReadOnlyBanner(
+                onRetry = {
+                    app.preferences.setOnlineReadOnly(false)
+                    onlineViewModel.searchDebounced(source, query)
+                },
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+
         if (source == SourceType.LOCAL) {
             LocalResults(
                 query = query,
@@ -167,6 +181,39 @@ fun SearchScreen(
 @Composable
 private fun SourceChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+}
+
+/** 密钥失效/额度耗尽后的提示条：本地功能照常，在线功能等新密钥 */
+@Composable
+private fun ReadOnlyBanner(onRetry: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "在线服务已停用",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    text = "密钥失效或额度不足。本地音乐不受影响，新密钥下发后自动恢复。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            TextButton(onClick = onRetry) {
+                Text("重试", color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        }
+    }
 }
 
 @Composable
