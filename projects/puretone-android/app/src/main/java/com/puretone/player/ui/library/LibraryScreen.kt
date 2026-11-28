@@ -45,6 +45,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.FilledTonalButton
 import com.puretone.player.ui.theme.Space
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.platform.LocalConfiguration
 import com.puretone.player.PureToneApplication
 import com.puretone.player.core.ALL_SONGS_ID
 import com.puretone.player.data.db.PlaylistWithCount
@@ -81,11 +85,19 @@ fun LibraryScreen(
         }
     }
 
+    val compactHeight = LocalConfiguration.current.screenHeightDp < 400
+
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = Space.lg, end = Space.sm, top = Space.lg, bottom = Space.xs),
+                .padding(
+                    start = Space.lg,
+                    end = Space.sm,
+                    // 横屏手机只有 ~360dp 高，页头别吃掉四分之一屏
+                    top = if (compactHeight) Space.s150 else Space.lg,
+                    bottom = Space.xs,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -245,12 +257,28 @@ private fun LibraryRow(
         }
 
         if (onDelete != null) {
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "删除歌单",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            // 常驻垃圾桶太吵：收进溢出菜单，和歌单页保持一致
+            var menuOpen by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "更多操作",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("删除歌单") },
+                        onClick = {
+                            menuOpen = false
+                            onDelete()
+                        },
+                    )
+                }
             }
         } else {
             Box(Modifier.size(Space.minTouch), contentAlignment = Alignment.Center) {

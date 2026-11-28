@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -69,6 +72,7 @@ import com.puretone.player.ui.components.AlbumArtBox
  * 搜索页：本地（音乐库 + 歌单）与在线搜索二选一，顶部芯片切换音源。
  * 在线结果点一下就是下载，下载完成自动进音乐库。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     onOpenPlaylist: (Long) -> Unit,
@@ -186,20 +190,21 @@ fun SearchScreen(
         )
         Spacer(Modifier.height(Space.s150))
 
-        // 芯片放横向滚动列表：窄屏也放得下五个音源，不会把「酷我」挤成竖排
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = Space.lg),
+        // 芯片用 FlowRow 自动换行：窄屏掉到第二行，宽屏仍是一行，
+        // 不会再出现「酷我」被裁在屏幕外、用户以为只有四个音源
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Space.lg),
             horizontalArrangement = Arrangement.spacedBy(Space.sm),
+            verticalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
-            item {
-                SourceChip(
-                    label = "本地",
-                    selected = source == SourceType.LOCAL,
-                    onClick = { source = SourceType.LOCAL },
-                )
-            }
-            items(SourceType.searchable) { item ->
+            SourceChip(
+                label = "本地",
+                selected = source == SourceType.LOCAL,
+                onClick = { source = SourceType.LOCAL },
+            )
+            SourceType.searchable.forEach { item ->
                 SourceChip(
                     label = item.displayName.removeSuffix("音乐"),
                     selected = source == item,
@@ -214,6 +219,8 @@ fun SearchScreen(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = 640.dp)
                 .fillMaxWidth()
                 .padding(horizontal = Space.lg),
             singleLine = true,
