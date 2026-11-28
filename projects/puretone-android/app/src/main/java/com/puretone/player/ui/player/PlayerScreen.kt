@@ -595,29 +595,11 @@ private fun NoLyricsPanel(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(168.dp)
-                .clip(CircleShape)
-                .background(
-                    if (title.isBlank()) {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = title.take(1).uppercase().ifBlank { "♪" },
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
-        Spacer(Modifier.height(20.dp))
+        // 不再画「圆圈 + 首字母」的占位：没有歌词就直说，
+        // 一个大字母既丑又没有任何信息量
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -644,6 +626,20 @@ private fun PreviewPlayerContent(
     // 版权受限的歌源站只给几十秒试听片段：音频短、但歌词时间轴明显更长
     val trialClip = preview.durationMs in 1L..40_000L &&
         LrcParser.lastTimestampMs(session.lrc) > preview.durationMs + 20_000L
+
+    // 这首歌是否已下载、下到了哪：已入库的歌不该再显示「未保存到音乐库」
+    val app = LocalContext.current.applicationContext as com.puretone.player.PureToneApplication
+    var destination by remember(session.key) { mutableStateOf<String?>(null) }
+    LaunchedEffect(session.key) {
+        val code = session.key.substringBefore(':')
+        val songId = session.key.substringAfter(':', "")
+        val type = com.puretone.player.data.model.SourceType.fromCode(code)
+        destination = if (type == com.puretone.player.data.model.SourceType.LOCAL) {
+            null
+        } else {
+            runCatching { app.onlineRepository.downloadDestination(type, songId) }.getOrNull()
+        }
+    }
 
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val duration = preview.durationMs
@@ -788,7 +784,7 @@ private fun PreviewPlayerContent(
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "在线试听 · 未保存到音乐库",
+            text = destination ?: "在线试听 · 未保存到音乐库",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

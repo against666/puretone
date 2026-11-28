@@ -11,6 +11,7 @@ import com.puretone.player.data.model.SourceType
 import com.puretone.player.data.online.OnlineSong
 import com.puretone.player.data.online.OnlineSongDetail
 import com.puretone.player.data.repo.OnlineMusicRepository
+import com.puretone.player.data.repo.PlaylistRepository
 import com.puretone.player.player.PreviewPlayer
 import com.puretone.player.player.PreviewSession
 import com.puretone.player.player.PreviewState
@@ -20,6 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -30,7 +34,14 @@ import kotlinx.coroutines.launch
 class OnlineSearchViewModel(
     private val repository: OnlineMusicRepository,
     private val previewPlayer: PreviewPlayer,
+    playlists: PlaylistRepository,
 ) : ViewModel() {
+
+    /** 下载目标候选歌单 */
+    val playlists: StateFlow<List<com.puretone.player.data.db.Playlist>> =
+        playlists.observePlaylists()
+            .map { list -> list.map { it.playlist } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     enum class Status { IDLE, LOADING, DONE, FAILED }
 
@@ -90,13 +101,19 @@ class OnlineSearchViewModel(
         }
     }
 
-    fun download(song: OnlineSong) {
-        Log.i(TAG, "download clicked: ${song.key}")
+    fun download(
+        song: OnlineSong,
+        targetPlaylistId: Long? = null,
+        targetPlaylistName: String? = null,
+    ) {
+        Log.i(TAG, "download clicked: ${song.key} -> ${targetPlaylistId ?: "音乐库"}")
         if (song.key in _downloading.value) return
         _downloading.update { it + song.key }
 
         viewModelScope.launch {
-            val result = runCatching { repository.download(song) }
+            val result = runCatching {
+                repository.download(song, targetPlaylistId, targetPlaylistName)
+            }
                 .getOrElse { OnlineMusicRepository.DownloadResult.Failed(it.message ?: "下载失败") }
 
             _downloading.update { it - song.key }
@@ -104,11 +121,17 @@ class OnlineSearchViewModel(
             when (result) {
                 is OnlineMusicRepository.DownloadResult.Added -> {
                     _downloaded.update { it + song.key }
+                    val where = result.playlistName?.let { "《$it》" } ?: "音乐库"
                     _message.value = if (result.trialClip) {
-                        "《${song.title}》源站只提供 30 秒试听片段（版权限制），已存入音乐库"
+                        "《${song.title}》源站只提供 30 秒试听片段（版权限制），已存入$where"
                     } else {
-                        "《${song.title}》已下载到音乐库"
+                        "《${song.title}》已下载到$where"
                     }
+                }
+
+                is OnlineMusicRepository.DownloadResult.AddedToPlaylist -> {
+                    _downloaded.update { it + song.key }
+                    _message.value = "《${song.title}》已加入歌单《${result.playlistName}》"
                 }
 
                 OnlineMusicRepository.DownloadResult.AlreadyExists -> {
@@ -188,7 +211,9 @@ class OnlineSearchViewModel(
         private const val TAG = "OnlineSearch"
 
         fun factory(app: PureToneApplication): ViewModelProvider.Factory = viewModelFactory {
-            initializer { OnlineSearchViewModel(app.onlineRepository, app.previewPlayer) }
+            initializer {
+                OnlineSearchViewModel(app.onlineRepository, app.previewPlayer, app.playlistRepository)
+            }
         }
     }
 }

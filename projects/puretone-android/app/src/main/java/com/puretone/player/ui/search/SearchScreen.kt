@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -37,6 +38,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,6 +89,10 @@ fun SearchScreen(
     val message by onlineViewModel.message.collectAsStateWithLifecycle()
     val onlineReadOnly by app.preferences.onlineReadOnly.collectAsStateWithLifecycle(false)
     val previewState by onlineViewModel.previewState.collectAsStateWithLifecycle()
+    val targetPlaylists by onlineViewModel.playlists.collectAsStateWithLifecycle()
+    // 点「下载」时先选去处；没有歌单就直接进音乐库
+    var downloadTarget by remember { mutableStateOf<OnlineSong?>(null) }
+    val scope = rememberCoroutineScope()
 
     val context = LocalContext.current
     LaunchedEffect(message) {
@@ -99,6 +107,48 @@ fun SearchScreen(
         if (source != SourceType.LOCAL) {
             onlineViewModel.searchDebounced(source, query)
         }
+    }
+
+    // 下载目标选择：音乐库 or 某个歌单（放在根布局外，切页不影响）
+    downloadTarget?.let { song ->
+        AlertDialog(
+            onDismissRequest = { downloadTarget = null },
+            title = { Text("下载《${song.title}》到") },
+            text = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            downloadTarget = null
+                            onlineViewModel.download(song)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "音乐库",
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    targetPlaylists.forEach { playlist ->
+                        TextButton(
+                            onClick = {
+                                downloadTarget = null
+                                onlineViewModel.download(song, playlist.id, playlist.name)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = "歌单 · ${playlist.name}",
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { downloadTarget = null }) { Text("取消") }
+            },
+        )
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -195,7 +245,18 @@ fun SearchScreen(
                     onlineViewModel.playPreview(song)
                     onOpenPlayer()
                 },
-                onDownload = onlineViewModel::download,
+                onDownload = { song ->
+                    if (targetPlaylists.isEmpty()) {
+                        onlineViewModel.download(song)
+                    } else {
+                        // 缓一拍再弹：弹窗若在当前点击的抬起事件前出现，
+                        // 这次点击的 UP 会被当成点遮罩，窗口一闪就被关掉
+                        scope.launch {
+                            delay(180)
+                            downloadTarget = song
+                        }
+                    }
+                },
             )
         }
     }
@@ -428,16 +489,18 @@ private fun OnlineSongRow(
         Spacer(Modifier.width(8.dp))
 
         when (downloadState) {
-            // 下载是独立按钮：点它不触发试听
-            DownloadState.Idle -> Text(
-                text = "下载",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onDownload)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            )
+            // 下载是独立按钮：点它不触发试听。
+            // 用 TextButton 而不是给 Text 挂 clickable——自带 48dp 触控区，窄屏也好点
+            DownloadState.Idle -> TextButton(
+                onClick = onDownload,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = "下载",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
 
             DownloadState.Downloading -> CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),

@@ -68,6 +68,7 @@ class PureToneApplication : Application() {
             saver = OnlineTrackSaver(this),
             trackDao = database.trackDao(),
             preferences = preferences,
+            playlists = playlistRepository,
         )
     }
 
