@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.layout.heightIn
 import com.puretone.player.ui.theme.Space
+import androidx.compose.ui.graphics.Color
 import com.puretone.player.PureToneApplication
 import com.puretone.player.R
 import com.puretone.player.data.db.PlaylistWithCount
@@ -200,12 +201,14 @@ fun SearchScreen(
             verticalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             SourceChip(
+                source = SourceType.LOCAL,
                 label = "本地",
                 selected = source == SourceType.LOCAL,
                 onClick = { source = SourceType.LOCAL },
             )
             SourceType.searchable.forEach { item ->
                 SourceChip(
+                    source = item,
                     label = item.displayName.removeSuffix("音乐"),
                     selected = source == item,
                     onClick = { source = item },
@@ -315,8 +318,60 @@ fun SearchScreen(
 }
 
 @Composable
-private fun SourceChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+private fun SourceChip(
+    source: SourceType,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        leadingIcon = { SourceBadge(source) },
+        label = { Text(label) },
+    )
+}
+
+/**
+ * 音源标识：品牌色圆角方块 + 白色图形。
+ *
+ * 刻意不使用各家官方 logo 图片——商标素材有使用限制；
+ * 用品牌色 + 通用音符已经足够在芯片里区分四个音源，
+ * 且深浅色主题下都不会糊成一团。
+ */
+@Composable
+private fun SourceBadge(source: SourceType) {
+    // 本地用中性底（浅灰底 + 深灰图标），四个在线音源用品牌色 + 白色音符
+    val background = when (source) {
+        SourceType.QQ -> Color(0xFF31C27C)
+        SourceType.WY -> Color(0xFFD33A31)
+        SourceType.KG -> Color(0xFF2CA2F9)
+        SourceType.KW -> Color(0xFFFFB200)
+        SourceType.LOCAL -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val tint = when (source) {
+        SourceType.LOCAL -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> Color.White
+    }
+    val painter = when (source) {
+        SourceType.LOCAL -> painterResource(R.drawable.ic_device)
+        else -> painterResource(R.drawable.ic_note)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(20.dp)
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(14.dp),
+        )
+    }
 }
 
 /** 密钥失效/额度耗尽后的提示条：本地功能照常，在线功能等新密钥 */
