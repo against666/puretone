@@ -18,7 +18,23 @@ data class LyricLine(
 object LrcParser {
 
     private val TIME_TAG = Regex("""^\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
+    private val LAST_TIME = Regex("""\[(\d{1,3}):(\d{1,2})""")
     private val META_TAG = Regex("""^\[(ti|ar|al|by|offset)\s*:(.*)]""", RegexOption.IGNORE_CASE)
+
+    /**
+     * 歌词最后一个时间戳（毫秒）。用于判断音频是否被截断成试听片段：
+     * 歌词写到 3 分钟而音频只有 30 秒，基本可断定是版权限制的片段。
+     */
+    fun lastTimestampMs(raw: String?): Long {
+        if (raw.isNullOrBlank()) return 0L
+        return raw.lineSequence()
+            .mapNotNull { line ->
+                LAST_TIME.find(line)?.let {
+                    it.groupValues[1].toLong() * 60_000L + it.groupValues[2].toLong() * 1_000L
+                }
+            }
+            .maxOrNull() ?: 0L
+    }
 
     fun parse(raw: String, userOffsetMs: Int = 0): List<LyricLine> {
         if (raw.isBlank()) return emptyList()

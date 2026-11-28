@@ -33,7 +33,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -639,6 +641,10 @@ private fun PreviewPlayerContent(
         if (raw.isNullOrBlank()) emptyList() else LrcParser.parse(raw, lyricOffsetMs)
     }
 
+    // 版权受限的歌源站只给几十秒试听片段：音频短、但歌词时间轴明显更长
+    val trialClip = preview.durationMs in 1L..40_000L &&
+        LrcParser.lastTimestampMs(session.lrc) > preview.durationMs + 20_000L
+
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val duration = preview.durationMs
     val baseFraction = if (duration > 0L) {
@@ -687,6 +693,24 @@ private fun PreviewPlayerContent(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
+
+        if (trialClip) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+            ) {
+                Text(
+                    text = "该音乐因平台版权限制，当前仅支持试听",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
 
         if (lyricLines.isNotEmpty()) {
             LyricsPanel(
