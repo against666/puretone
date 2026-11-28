@@ -100,6 +100,8 @@ class PreviewPlayer(context: Context) {
     }
 
     fun start(session: PreviewSession, url: String) {
+        // 加载途中试听被取消（例如用户先播了本地歌）：放弃这次启动
+        if (loadingKey != session.key) return
         this.session = session
         loadingKey = null
         player.setMediaItem(MediaItem.fromUri(url))

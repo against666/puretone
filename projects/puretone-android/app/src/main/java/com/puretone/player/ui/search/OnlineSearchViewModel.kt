@@ -102,9 +102,13 @@ class OnlineSearchViewModel(
             _downloading.update { it - song.key }
             Log.i(TAG, "download result: $result")
             when (result) {
-                OnlineMusicRepository.DownloadResult.Added -> {
+                is OnlineMusicRepository.DownloadResult.Added -> {
                     _downloaded.update { it + song.key }
-                    _message.value = "《${song.title}》已下载到音乐库"
+                    _message.value = if (result.trialClip) {
+                        "《${song.title}》源站只提供 30 秒试听片段（版权限制），已存入音乐库"
+                    } else {
+                        "《${song.title}》已下载到音乐库"
+                    }
                 }
 
                 OnlineMusicRepository.DownloadResult.AlreadyExists -> {
@@ -142,6 +146,9 @@ class OnlineSearchViewModel(
 
     private fun loadAndStart(song: OnlineSong) {
         previewDetails[song.key]?.let { detail ->
+            // 先置加载态：start() 只认当前挂起的加载，
+            // 这样「加载途中用户去播了本地歌」时这次启动会被丢弃
+            previewPlayer.loading(song.key)
             previewPlayer.start(sessionOf(song, detail), detail.mp3Url!!)
             return
         }
