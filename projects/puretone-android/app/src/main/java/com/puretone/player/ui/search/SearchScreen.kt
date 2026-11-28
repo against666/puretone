@@ -85,12 +85,6 @@ fun SearchScreen(
     val message by onlineViewModel.message.collectAsStateWithLifecycle()
     val onlineReadOnly by app.preferences.onlineReadOnly.collectAsStateWithLifecycle(false)
     val previewState by onlineViewModel.previewState.collectAsStateWithLifecycle()
-    val mainPlayerState by app.player.state.collectAsStateWithLifecycle()
-
-    // 主播放器开始放歌（用户从别处点了播放）时，试听让位
-    LaunchedEffect(mainPlayerState.isPlaying) {
-        if (mainPlayerState.isPlaying) onlineViewModel.stopPreview()
-    }
 
     val context = LocalContext.current
     LaunchedEffect(message) {

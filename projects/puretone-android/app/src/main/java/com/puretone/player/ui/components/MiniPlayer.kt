@@ -230,7 +230,7 @@ fun BottomAudioBar(
     MiniPlayer(
         title = session.title,
         artist = "在线试听 · ${session.artist}",
-        coverUri = null,
+        coverUri = session.coverUrl,
         lyricText = session.lrc,
         positionMs = preview.positionMs,
         isPlaying = preview.status == PreviewState.Status.PLAYING,

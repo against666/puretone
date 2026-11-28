@@ -17,6 +17,8 @@ import com.puretone.player.player.PreviewPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class PureToneApplication : Application() {
@@ -28,6 +30,16 @@ class PureToneApplication : Application() {
         // 把上次远程下发的密钥装进内存；启动时静默检查更新，失败不打扰用户
         appScope.launch { ApiKeyStore.update(preferences.currentRemoteApiKey()) }
         updateChecker.checkOnLaunch()
+
+        // 主播放器一开播就结束试听：否则用户播了本地歌曲，
+        // 底部迷你条还停在试听那首上（试听会话没被清掉）。
+        // 必须在主线程收：ExoPlayer 不允许跨线程访问，IO 线程调 stop() 会崩
+        appScope.launch(Dispatchers.Main.immediate) {
+            player.state
+                .map { it.isPlaying }
+                .distinctUntilChanged()
+                .collect { playing -> if (playing) previewPlayer.stop() }
+        }
     }
 
     /** 全进程共用一个数据库实例，首次访问时才真正打开 */

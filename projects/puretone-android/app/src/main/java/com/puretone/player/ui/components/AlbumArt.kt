@@ -37,6 +37,10 @@ fun rememberAlbumArt(uriString: String?): ImageBitmap? {
     val state by produceState<ImageBitmap?>(initialValue = null, key1 = uriString) {
         value = if (uriString.isNullOrBlank()) {
             null
+        } else if (uriString.startsWith("http")) {
+            RemoteCoverCache.get(uriString) ?: withContext(Dispatchers.IO) {
+                runCatching { RemoteCoverCache.load(uriString) }.getOrNull()
+            }?.also { RemoteCoverCache.put(uriString, it) }
         } else {
             withContext(Dispatchers.IO) {
                 runCatching {
@@ -110,3 +114,42 @@ private fun sampleSize(width: Int, height: Int, target: Int): Int {
 }
 
 private const val TARGET_PX = 320
+
+/**
+ * 在线试听封面的内存缓存。
+ *
+ * 依然不引图片库：试听封面是接口给的 HTTPS 小图，
+ * 拉一次解码一次、按 URL 缓存住就够了，离线和重复进页面都不再请求。
+ */
+private object RemoteCoverCache {
+
+    private val cache = android.util.LruCache<String, ImageBitmap>(32)
+
+    fun get(url: String): ImageBitmap? = cache.get(url)
+
+    fun put(url: String, bitmap: ImageBitmap) {
+        cache.put(url, bitmap)
+    }
+
+    /** 网络拉图：先测尺寸算缩放，再按 320px 目标解码，避免原图整张进内存 */
+    fun load(url: String): ImageBitmap? {
+        val bytes = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).run {
+            connectTimeout = 8_000
+            readTimeout = 10_000
+            instanceFollowRedirects = true
+            try {
+                if (responseCode !in 200..299) return null
+                inputStream.use { it.readBytes() }
+            } finally {
+                disconnect()
+            }
+        }
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, TARGET_PX)
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
+    }
+}

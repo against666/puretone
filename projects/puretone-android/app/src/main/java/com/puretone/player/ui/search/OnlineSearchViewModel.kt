@@ -170,6 +170,7 @@ class OnlineSearchViewModel(
         artist = song.artist.ifBlank { detail.song.artist },
         album = song.album.ifBlank { detail.song.album },
         lrc = detail.lrc,
+        coverUrl = detail.picUrl,
     )
 
     fun consumeMessage() {

@@ -23,6 +23,7 @@ data class PreviewSession(
     val artist: String,
     val album: String,
     val lrc: String?,
+    val coverUrl: String?,
 )
 
 data class PreviewState(
@@ -44,15 +45,46 @@ data class PreviewState(
  */
 class PreviewPlayer(context: Context) {
 
-    private val player: ExoPlayer = ExoPlayer.Builder(context).build().apply {
-        setAudioAttributes(
-            AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(C.USAGE_MEDIA)
-                .build(),
-            /* handleAudioFocus = */ true,
-        )
-    }
+    // 懒初始化：没人试听时不为它占一份 ExoPlayer 资源。
+    // 监听器和进度轮询都挂在首次创建时，构造 PreviewPlayer 本身不碰播放器。
+    private val player: ExoPlayer by lazy { buildPlayer(context) }
+
+    private fun buildPlayer(context: Context): ExoPlayer =
+        ExoPlayer.Builder(context).build().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
+            addListener(
+                object : Player.Listener {
+                    override fun onIsPlayingChanged(isPlaying: Boolean) = publish()
+
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        // 播完不停在「空态」：回到开头并暂停，歌词页还留着这首歌，方便重听
+                        if (playbackState == Player.STATE_ENDED) {
+                            seekTo(0L)
+                            pause()
+                        }
+                        publish()
+                    }
+
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        Log.w(TAG, "试听失败: ${error.message}")
+                        stop()
+                    }
+                },
+            )
+            // 歌词页需要进度：播放中每 400ms 推一次位置
+            scope.launch {
+                while (true) {
+                    if (isPlaying) publish()
+                    delay(400L)
+                }
+            }
+        }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -61,36 +93,6 @@ class PreviewPlayer(context: Context) {
 
     private var session: PreviewSession? = null
     private var loadingKey: String? = null
-
-    init {
-        player.addListener(
-            object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) = publish()
-
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    // 播完不停在「空态」：回到开头并暂停，歌词页还留着这首歌，方便重听
-                    if (playbackState == Player.STATE_ENDED) {
-                        player.seekTo(0L)
-                        player.pause()
-                    }
-                    publish()
-                }
-
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.w(TAG, "试听失败: ${error.message}")
-                    stop()
-                }
-            },
-        )
-
-        // 歌词页需要进度：播放中每 400ms 推一次位置
-        scope.launch {
-            while (true) {
-                if (player.isPlaying) publish()
-                delay(400L)
-            }
-        }
-    }
 
     fun loading(key: String) {
         loadingKey = key
@@ -126,7 +128,9 @@ class PreviewPlayer(context: Context) {
     }
 
     fun stop() {
-        if (session != null || loadingKey != null) Log.i(TAG, "试听停止")
+        // 从未试听过：什么都不用做，不触发 ExoPlayer 初始化
+        if (session == null && loadingKey == null) return
+        Log.i(TAG, "试听停止")
         session = null
         loadingKey = null
         player.stop()

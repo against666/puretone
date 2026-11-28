@@ -659,20 +659,12 @@ private fun PreviewPlayerContent(
         }
 
         Spacer(Modifier.height(4.dp))
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .size(96.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = session.title.take(1).uppercase().ifBlank { "♪" },
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
+        AlbumArtBox(
+            coverUri = session.coverUrl,
+            size = 96.dp,
+            corner = 16.dp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
         Spacer(Modifier.height(12.dp))
 
         Text(
