@@ -91,6 +91,7 @@ fun SearchScreen(
     val onlineReadOnly by app.preferences.onlineReadOnly.collectAsStateWithLifecycle(false)
     val previewState by onlineViewModel.previewState.collectAsStateWithLifecycle()
     val targetPlaylists by onlineViewModel.playlists.collectAsStateWithLifecycle()
+    val searchHistory by app.preferences.searchHistory.collectAsStateWithLifecycle(emptyList())
     // 点「下载」时先选去处；没有歌单就直接进音乐库
     var downloadTarget by remember { mutableStateOf<OnlineSong?>(null) }
     val scope = rememberCoroutineScope()
@@ -115,6 +116,7 @@ fun SearchScreen(
     }
 
     val context = LocalContext.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(message) {
         message?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -212,6 +214,17 @@ fun SearchScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
             singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                imeAction = androidx.compose.ui.text.input.ImeAction.Search,
+            ),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onSearch = {
+                    if (source != SourceType.LOCAL && query.isNotBlank()) {
+                        scope.launch { app.preferences.addSearchHistory(query) }
+                    }
+                    keyboard?.hide()
+                },
+            ),
             placeholder = {
                 Text(
                     if (source == SourceType.LOCAL) {
@@ -260,12 +273,21 @@ fun SearchScreen(
                 downloaded = downloaded,
                 previewKey = previewState.key,
                 previewStatus = previewState.status,
-                onTogglePreview = onlineViewModel::togglePreview,
+                onTogglePreview = { song ->
+                    if (query.isNotBlank()) scope.launch { app.preferences.addSearchHistory(query) }
+                    onlineViewModel.togglePreview(song)
+                },
                 onOpenPlayer = { song ->
+                    if (query.isNotBlank()) scope.launch { app.preferences.addSearchHistory(query) }
                     onlineViewModel.playPreview(song)
                     pendingOpenKey = song.key
                 },
+                history = searchHistory,
+                onPickKeyword = { keyword -> query = keyword },
+                onRemoveKeyword = { keyword -> scope.launch { app.preferences.removeSearchHistory(keyword) } },
+                onClearHistory = { scope.launch { app.preferences.clearSearchHistory() } },
                 onDownload = { song ->
+                    if (query.isNotBlank()) scope.launch { app.preferences.addSearchHistory(query) }
                     if (targetPlaylists.isEmpty()) {
                         onlineViewModel.download(song)
                     } else {
@@ -392,12 +414,21 @@ private fun OnlineResults(
     downloaded: Set<String>,
     previewKey: String?,
     previewStatus: PreviewState.Status,
+    history: List<String>,
+    onPickKeyword: (String) -> Unit,
+    onRemoveKeyword: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onTogglePreview: (OnlineSong) -> Unit,
     onOpenPlayer: (OnlineSong) -> Unit,
     onDownload: (OnlineSong) -> Unit,
 ) {
     when {
-        keyword.isBlank() -> CenterHint("选好音源，输入歌名或歌手开始搜索。")
+        keyword.isBlank() -> SearchHistoryView(
+            history = history,
+            onPick = onPickKeyword,
+            onRemove = onRemoveKeyword,
+            onClear = onClearHistory,
+        )
 
         status == OnlineSearchViewModel.Status.LOADING -> LoadingHint()
 
@@ -657,5 +688,82 @@ private fun CenterHint(text: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 32.dp),
         )
+    }
+}
+
+/** 空搜索时的「最近搜索」：点一条直接搜，右侧 ✕ 单删，顶部可清空 */
+@Composable
+private fun SearchHistoryView(
+    history: List<String>,
+    onPick: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    if (history.isEmpty()) {
+        CenterHint("选好音源，输入歌名或歌手开始搜索。")
+        return
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "最近搜索",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = onClear,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text("清空", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
+        ) {
+            items(history, key = { it }) { keyword ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(keyword) }
+                        .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = keyword,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = { onRemove(keyword) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = "✕",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

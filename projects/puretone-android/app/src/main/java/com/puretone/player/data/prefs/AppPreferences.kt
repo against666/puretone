@@ -75,6 +75,44 @@ class AppPreferences(context: Context) {
 
     suspend fun currentOnlineReadOnly(): Boolean = read()[KEY_ONLINE_READ_ONLY] ?: false
 
+    /** 最近搜索的关键字，新的在前 */
+    val searchHistory: Flow<List<String>> = data().map { decodeHistory(it[KEY_SEARCH_HISTORY]) }
+
+    /** 记一条搜索：去重、挪到最前、最多留 20 条 */
+    suspend fun addSearchHistory(keyword: String) {
+        val trimmed = keyword.trim()
+        if (trimmed.isBlank()) return
+        val current = decodeHistory(read()[KEY_SEARCH_HISTORY])
+        val updated = (listOf(trimmed) + current.filterNot { it.equals(trimmed, ignoreCase = true) })
+            .take(MAX_HISTORY)
+        write { it[KEY_SEARCH_HISTORY] = encodeHistory(updated) }
+    }
+
+    suspend fun removeSearchHistory(keyword: String) {
+        val current = decodeHistory(read()[KEY_SEARCH_HISTORY])
+        write {
+            it[KEY_SEARCH_HISTORY] = encodeHistory(current.filterNot { it == keyword })
+        }
+    }
+
+    suspend fun clearSearchHistory() {
+        write { it[KEY_SEARCH_HISTORY] = encodeHistory(emptyList()) }
+    }
+
+    private fun decodeHistory(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching {
+            val array = org.json.JSONArray(raw)
+            (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun encodeHistory(list: List<String>): String {
+        val array = org.json.JSONArray()
+        list.forEach { array.put(it) }
+        return array.toString()
+    }
+
 
 
     private fun data(): Flow<Preferences> = appContext.settingsDataStore.data
@@ -98,5 +136,7 @@ class AppPreferences(context: Context) {
         val KEY_LYRIC_OFFSET = intPreferencesKey("lyric_offset_ms")
         val KEY_REMOTE_API_KEY = stringPreferencesKey("remote_api_key")
         val KEY_ONLINE_READ_ONLY = booleanPreferencesKey("online_read_only")
+        val KEY_SEARCH_HISTORY = stringPreferencesKey("search_history")
+        const val MAX_HISTORY = 20
     }
 }

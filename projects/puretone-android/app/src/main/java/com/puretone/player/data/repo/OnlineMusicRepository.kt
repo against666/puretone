@@ -60,6 +60,9 @@ class OnlineMusicRepository(
             }
         }
 
+    /** 搜索成功后记一条历史（去重、置顶、上限 20） */
+    suspend fun recordKeyword(keyword: String) = preferences.addSearchHistory(keyword)
+
     /**
      * 试听用：取播放地址与歌词，不落盘。
      *
