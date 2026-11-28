@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,8 +73,10 @@ fun SearchScreen(
     val tracks by app.repository.observeTracks().collectAsStateWithLifecycle(emptyList())
     val playlists by app.playlistRepository.observePlaylists().collectAsStateWithLifecycle(emptyList())
 
-    var source by remember { mutableStateOf(SourceType.LOCAL) }
-    var query by remember { mutableStateOf("") }
+    // rememberSaveable：进歌词页再返回时，音源和关键字要还在，
+    // 否则回到搜索页看到的是默认「本地」空页，像是被踢回了音乐库
+    var source by rememberSaveable { mutableStateOf(SourceType.LOCAL) }
+    var query by rememberSaveable { mutableStateOf("") }
 
     val onlineStatus by onlineViewModel.status.collectAsStateWithLifecycle()
     val onlineResults by onlineViewModel.results.collectAsStateWithLifecycle()

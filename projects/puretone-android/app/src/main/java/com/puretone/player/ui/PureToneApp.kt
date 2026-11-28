@@ -32,6 +32,7 @@ import androidx.navigation.navArgument
 import com.puretone.player.BuildConfig
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.prefs.ThemeMode
+import com.puretone.player.ui.components.BottomAudioBar
 import com.puretone.player.ui.components.PlayerBarHost
 import com.puretone.player.ui.library.LibraryScreen
 import com.puretone.player.ui.player.PlayerScreen
@@ -91,7 +92,7 @@ fun PureToneApp(
                 // 播放页全屏，其余页面常驻迷你条。
                 // PlayerBarHost 内部自己订阅播放状态，外面的导航树不会被进度刷新带着重组。
                 if (currentRoute != Routes.PLAYER) {
-                    PlayerBarHost(
+                    BottomAudioBar(
                         app = app,
                         onOpenPlayer = { navController.navigate(Routes.PLAYER) },
                     )

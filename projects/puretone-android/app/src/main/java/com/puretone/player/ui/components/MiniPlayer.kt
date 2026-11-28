@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.puretone.player.PureToneApplication
+import com.puretone.player.player.PreviewState
 import com.puretone.player.R
 import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.indexAt
@@ -204,4 +205,42 @@ fun MiniPlayer(
             }
         }
     }
+}
+
+/**
+ * 底部音频条：试听存在时优先显示试听，否则显示主播放器的迷你条。
+ *
+ * 单独包一层是为了让「谁该显示」的判断发生在这一层，
+ * 外面的导航树不用跟着 400ms 的试听进度重组。
+ */
+@Composable
+fun BottomAudioBar(
+    app: PureToneApplication,
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val preview by app.previewPlayer.state.collectAsStateWithLifecycle()
+    val session = preview.session
+
+    if (session == null) {
+        PlayerBarHost(app = app, onOpenPlayer = onOpenPlayer, modifier = modifier)
+        return
+    }
+
+    MiniPlayer(
+        title = session.title,
+        artist = "在线试听 · ${session.artist}",
+        coverUri = null,
+        lyricText = session.lrc,
+        positionMs = preview.positionMs,
+        isPlaying = preview.status == PreviewState.Status.PLAYING,
+        progress = if (preview.durationMs > 0L) {
+            preview.positionMs.toFloat() / preview.durationMs
+        } else {
+            0f
+        },
+        onClick = onOpenPlayer,
+        onTogglePlay = app.previewPlayer::toggle,
+        modifier = modifier,
+    )
 }
