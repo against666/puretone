@@ -183,10 +183,21 @@ class OnlineSearchViewModel(
 
         viewModelScope.launch {
             previewPlayer.loading(song.key)
-            val detail = repository.previewDetail(song)
+            var detail = repository.previewDetail(song)
+
+            // 主音源解析不出来：换个音源兜底，别让用户干等
+            if (detail?.mp3Url.isNullOrBlank()) {
+                val alternative = repository.previewElsewhere(song)
+                if (alternative != null) {
+                    val (source, altDetail) = alternative
+                    _message.value = "${song.source.displayName}暂无播放地址，已改用${source.displayName}试听"
+                    detail = altDetail
+                }
+            }
+
             if (detail?.mp3Url.isNullOrBlank()) {
                 previewPlayer.stop()
-                _message.value = "这首歌暂时无法试听，可以直接下载试试"
+                _message.value = "暂时拿不到播放地址，稍后再试或换个音源"
                 return@launch
             }
             previewDetails[song.key] = detail!!
