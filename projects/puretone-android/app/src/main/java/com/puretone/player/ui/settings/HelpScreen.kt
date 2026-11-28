@@ -24,6 +24,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.puretone.player.ui.theme.Space
 
 /**
  * 应用内使用说明。
@@ -41,22 +42,22 @@ fun HelpScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = Space.lg),
     ) {
         TextButton(
             onClick = onBack,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = Space.xs),
             contentPadding = PaddingValues(0.dp),
         ) {
             Text("← 返回")
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Space.sm))
         Text(
             text = "使用说明",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(Space.s75))
         Text(
             text = "歌存在手机里，在线搜索帮你把歌找回来。",
             style = MaterialTheme.typography.bodyMedium,
@@ -105,13 +106,13 @@ fun HelpScreen(
             Point("显示只读", "密钥额度用完，本地播放与歌单不受影响，新密钥下发后自动恢复。")
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
         Text(
             text = "本文档随版本更新。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(Space.s450))
     }
 }
 
@@ -133,14 +134,14 @@ private fun Chapter(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
             fontWeight = FontWeight.Medium,
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(Space.s125))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
     }
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(Space.s125))
     Column(content = content)
     Spacer(Modifier.height(18.dp))
 }
@@ -166,6 +167,7 @@ private fun Point(term: String, body: String) {
         lineHeight = MaterialTheme.typography.bodyMedium.fontSize * 1.5f,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = Space.xs),
     )
 }
+

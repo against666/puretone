@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.db.Track
 import com.puretone.player.ui.components.formatDuration
@@ -82,7 +83,7 @@ fun AddSongsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 12.dp, top = 8.dp),
+                .padding(start = Space.xs, end = 12.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) { Text("取消") }
@@ -131,7 +132,7 @@ fun AddSongsScreen(
             onValueChange = { query = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = Space.md, vertical = 4.dp),
             singleLine = true,
             placeholder = { Text("搜索歌曲") },
             leadingIcon = {
@@ -147,7 +148,7 @@ fun AddSongsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = Space.lg),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -199,7 +200,7 @@ private fun SelectableTrackRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = Space.sm, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
@@ -222,7 +223,7 @@ private fun SelectableTrackRow(
             )
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Space.s150))
 
         Column(Modifier.weight(1f)) {
             Text(
@@ -236,7 +237,7 @@ private fun SelectableTrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Space.xxs))
             Text(
                 text = if (enabled) {
                     "${track.artist} · ${formatDuration(track.durationMs)}"

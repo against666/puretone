@@ -41,6 +41,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.FilledTonalButton
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.core.ALL_SONGS_ID
 import com.puretone.player.data.db.PlaylistWithCount
@@ -81,7 +85,7 @@ fun LibraryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 8.dp, top = 28.dp, bottom = 4.dp),
+                .padding(start = Space.lg, end = Space.sm, top = Space.lg, bottom = Space.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -96,13 +100,17 @@ fun LibraryScreen(
                     } else {
                         "$trackCount 首歌 · ${playlists.size} 个歌单"
                     },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = { picker.launch(arrayOf("audio/*")) }, enabled = !importing) {
+            FilledTonalButton(
+                onClick = { picker.launch(arrayOf("audio/*")) },
+                enabled = !importing,
+            ) {
                 Text("导入")
             }
+            Spacer(Modifier.width(Space.xs))
             TextButton(onClick = { showCreateDialog = true }) {
                 Text("新建歌单")
             }
@@ -110,7 +118,7 @@ fun LibraryScreen(
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = Space.sm, bottom = Space.lg),
         ) {
             item {
                 LibraryRow(
@@ -125,9 +133,13 @@ fun LibraryScreen(
                 item {
                     Text(
                         text = "我的歌单",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 24.dp, top = 20.dp, bottom = 6.dp),
+                        modifier = Modifier.padding(
+                            start = Space.lg,
+                            top = Space.s250,
+                            bottom = Space.s75,
+                        ),
                     )
                 }
                 items(playlists, key = { it.playlist.id }) { item ->
@@ -139,7 +151,7 @@ fun LibraryScreen(
                         onDelete = { pendingDelete = item },
                     )
                     HorizontalDivider(
-                        modifier = Modifier.padding(start = 84.dp, end = 16.dp),
+                        modifier = Modifier.padding(start = 88.dp, end = Space.md),
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
@@ -149,7 +161,12 @@ fun LibraryScreen(
                         text = "还没有歌单。点右上角「新建歌单」开始整理。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
+                        modifier = Modifier.padding(
+                            start = Space.lg,
+                            end = Space.lg,
+                            top = Space.s250,
+                            bottom = Space.md,
+                        ),
                     )
                 }
             }
@@ -197,17 +214,18 @@ private fun LibraryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = Space.listRowMin)
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = Space.md, end = Space.xs, top = Space.sm, bottom = Space.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AlbumArtBox(
             coverUri = coverUri,
-            size = 52.dp,
-            corner = 10.dp,
+            size = 56.dp,
+            corner = 8.dp,
         )
 
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(Space.md))
 
         Column(Modifier.weight(1f)) {
             Text(
@@ -219,8 +237,10 @@ private fun LibraryRow(
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
@@ -233,12 +253,13 @@ private fun LibraryRow(
                 )
             }
         } else {
-            Text(
-                text = "›",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            Box(Modifier.size(Space.minTouch), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

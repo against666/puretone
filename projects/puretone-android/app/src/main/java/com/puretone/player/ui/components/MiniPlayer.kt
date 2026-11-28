@@ -30,8 +30,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.puretone.player.PureToneApplication
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.player.PreviewState
+import com.puretone.player.PureToneApplication
 import com.puretone.player.R
 import com.puretone.player.lyric.LrcParser
 import com.puretone.player.lyric.indexAt
@@ -106,17 +109,13 @@ fun MiniPlayer(
         lines.getOrNull(lines.indexAt(positionMs))?.text
     }
 
-    val shape = RoundedCornerShape(
-        topStart = 10.dp,
-        topEnd = 32.dp,
-        bottomEnd = 32.dp,
-        bottomStart = 10.dp,
-    )
+    // 圆角走 MD3 令牌，不再手写非对称四角
+    val shape = MaterialTheme.shapes.large
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
+            .padding(start = Space.s150, end = Space.s150, top = Space.xs, bottom = Space.sm),
     ) {
         Column(
             modifier = Modifier
@@ -128,13 +127,13 @@ fun MiniPlayer(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
+                    .height(3.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
                 Box(
                     Modifier
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
-                        .height(2.dp)
+                        .height(3.dp)
                         .background(MaterialTheme.colorScheme.primary),
                 )
             }
@@ -142,18 +141,19 @@ fun MiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .heightIn(min = 64.dp)
+                    .padding(start = Space.sm, top = Space.sm, bottom = Space.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AlbumArtBox(
                     coverUri = coverUri,
-                    size = 64.dp,
-                    corner = 0.dp,
+                    size = 48.dp,
+                    corner = 6.dp,
                 )
 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(Space.s150))
 
-                Column(Modifier.widthIn(max = 96.dp)) {
+                Column(Modifier.widthIn(max = 104.dp)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -164,7 +164,6 @@ fun MiniPlayer(
                     Text(
                         text = artist,
                         style = MaterialTheme.typography.labelMedium,
-                        fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -181,7 +180,7 @@ fun MiniPlayer(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 6.dp),
+                            .padding(horizontal = Space.s75),
                     )
                 } else {
                     Spacer(Modifier.weight(1f))

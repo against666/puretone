@@ -34,6 +34,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.puretone.player.BuildConfig
+import androidx.compose.ui.draw.clip
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.prefs.LyricSize
 import com.puretone.player.data.prefs.ThemeMode
@@ -54,9 +56,9 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = Space.lg),
     ) {
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(Space.xl))
         Text(
             text = "设置",
             style = MaterialTheme.typography.headlineMedium,
@@ -66,7 +68,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(28.dp))
         SectionTitle("外观")
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -91,7 +93,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
         SectionTitle("歌词")
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -146,14 +148,15 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
         SectionTitle("帮助")
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
                 .clickable(onClick = onOpenHelp),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.padding(horizontal = Space.md, vertical = Space.s150),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -180,12 +183,12 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
         SectionTitle("关于")
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.padding(horizontal = Space.md, vertical = Space.s150),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -279,7 +282,7 @@ private fun ThemeOptionRow(
                 onClick = onClick,
                 role = Role.RadioButton,
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = Space.md, vertical = Space.s150),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

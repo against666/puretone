@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.R
 import com.puretone.player.data.db.Track
@@ -127,23 +128,23 @@ fun PlayerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = Space.lg),
     ) {
         TextButton(
             onClick = onBack,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = Space.xs),
         ) {
             Text("← 返回")
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.xs))
         AlbumArtBox(
             coverUri = state.coverUri,
             size = 96.dp,
             corner = 16.dp,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
 
         Text(
             text = state.title.ifBlank { "还没有播放中的歌曲" },
@@ -154,7 +155,7 @@ fun PlayerScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.xs))
         Text(
             text = state.artist.ifBlank { "从音乐库选一首开始" },
             style = MaterialTheme.typography.bodyMedium,
@@ -164,7 +165,7 @@ fun PlayerScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
         if (lyricLines.isNotEmpty()) {
             LyricsPanel(
                 lines = lyricLines,
@@ -209,7 +210,7 @@ fun PlayerScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.md))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -231,7 +232,7 @@ fun PlayerScreen(
                     },
                 )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(Space.xs))
             IconButton(onClick = app.player::previous, enabled = state.hasMedia) {
                 Icon(
                     painter = painterResource(R.drawable.ic_skip_previous),
@@ -239,7 +240,7 @@ fun PlayerScreen(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Space.sm))
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -274,7 +275,7 @@ fun PlayerScreen(
                     )
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Space.sm))
             IconButton(onClick = app.player::next, enabled = state.hasMedia) {
                 Icon(
                     painter = painterResource(R.drawable.ic_skip_next),
@@ -282,7 +283,7 @@ fun PlayerScreen(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(Space.xs))
             IconButton(onClick = { showQueue = true }, enabled = queue.isNotEmpty()) {
                 Icon(
                     painter = painterResource(R.drawable.ic_queue),
@@ -295,7 +296,7 @@ fun PlayerScreen(
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
     }
     if (showQueue) {
         ModalBottomSheet(onDismissRequest = { showQueue = false }) {
@@ -321,7 +322,7 @@ private fun QueueSheet(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = Space.lg, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -355,7 +356,7 @@ private fun QueueSheet(
                             },
                         )
                         .clickable { onSelect(index) }
-                        .padding(horizontal = 24.dp, vertical = 10.dp),
+                        .padding(horizontal = Space.lg, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -369,7 +370,7 @@ private fun QueueSheet(
                         textAlign = TextAlign.End,
                         modifier = Modifier.width(28.dp),
                     )
-                    Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(Space.s175))
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = track.title,
@@ -482,7 +483,7 @@ private fun LyricsPanel(
                 Row(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(end = 10.dp),
+                        .padding(end = Space.s125),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -494,9 +495,9 @@ private fun LyricsPanel(
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                                 shape = RoundedCornerShape(6.dp),
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                            .padding(horizontal = Space.s75, vertical = 2.dp),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(Space.s75))
                     Box(
                         Modifier
                             .width(3.dp)
@@ -572,7 +573,7 @@ private fun LyricRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 9.dp),
+            .padding(horizontal = Space.sm, vertical = 9.dp),
     )
 }
 
@@ -654,20 +655,20 @@ private fun PreviewPlayerContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = Space.lg),
     ) {
-        TextButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) {
+        TextButton(onClick = onBack, modifier = Modifier.padding(top = Space.xs)) {
             Text("← 返回")
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.xs))
         AlbumArtBox(
             coverUri = session.coverUrl,
             size = 96.dp,
             corner = 16.dp,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
 
         Text(
             text = session.title,
@@ -678,7 +679,7 @@ private fun PreviewPlayerContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Space.xs))
         Text(
             text = session.artist.ifBlank { session.album },
             style = MaterialTheme.typography.bodyMedium,
@@ -688,7 +689,7 @@ private fun PreviewPlayerContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
 
         if (trialClip) {
             Surface(
@@ -696,14 +697,14 @@ private fun PreviewPlayerContent(
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 10.dp),
+                    .padding(bottom = Space.s125),
             ) {
                 Text(
                     text = "该音乐因平台版权限制，当前仅支持试听",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Space.s150, vertical = 8.dp),
                 )
             }
         }
@@ -755,7 +756,7 @@ private fun PreviewPlayerContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.md))
 
         Box(
             modifier = Modifier
@@ -782,7 +783,7 @@ private fun PreviewPlayerContent(
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Space.sm))
         Text(
             text = destination ?: "在线试听 · 未保存到音乐库",
             style = MaterialTheme.typography.labelMedium,
@@ -790,7 +791,7 @@ private fun PreviewPlayerContent(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp),
+                .padding(bottom = Space.s250),
         )
     }
 }

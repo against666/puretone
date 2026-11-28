@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -35,8 +40,23 @@ fun DotSeekBar(
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
 
     Box(
+        // 自定义绘制的进度条对读屏是"空白"：补上进度语义与可调节动作，
+        // 否则 TalkBack 用户无法知道播放位置、也无法拖动
         modifier = modifier
             .fillMaxWidth()
+            .semantics {
+                contentDescription = "播放进度"
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = fraction.coerceIn(0f, 1f),
+                    range = 0f..1f,
+                )
+                if (enabled) {
+                    setProgress {
+                        onSeekCommit(it.coerceIn(0f, 1f))
+                        true
+                    }
+                }
+            }
             .height(32.dp)
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput

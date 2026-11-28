@@ -2,8 +2,16 @@ package com.puretone.player.ui
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
@@ -11,14 +19,18 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -33,7 +45,6 @@ import com.puretone.player.BuildConfig
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.prefs.ThemeMode
 import com.puretone.player.ui.components.BottomAudioBar
-import com.puretone.player.ui.components.PlayerBarHost
 import com.puretone.player.ui.library.LibraryScreen
 import com.puretone.player.ui.player.PlayerScreen
 import com.puretone.player.ui.playlist.AddSongsScreen
@@ -41,6 +52,8 @@ import com.puretone.player.ui.playlist.PlaylistDetailScreen
 import com.puretone.player.ui.search.SearchScreen
 import com.puretone.player.ui.settings.HelpScreen
 import com.puretone.player.ui.settings.SettingsScreen
+import com.puretone.player.ui.theme.Space
+import com.puretone.player.ui.theme.WidthClass
 import com.puretone.player.ui.update.UpdateDialog
 
 object Routes {
@@ -70,6 +83,15 @@ private val Tabs = listOf(
     Tab(Routes.SETTINGS, "设置", Icons.Filled.Settings),
 )
 
+/**
+ * 应用外壳：响应式导航 + 常驻迷你播放条。
+ *
+ * 布局策略（对应 MD3 的三档窗口宽度）：
+ * - 窄屏（<600dp）：底部导航栏 + 导航栏上方的迷你条
+ * - 中等/宽屏（≥600dp）：左侧 NavigationRail，内容限宽 840dp 居中，
+ *   迷你条贴在内容区底部并与内容同宽
+ * 播放页全屏，不显示任何导航与迷你条。
+ */
 @Composable
 fun PureToneApp(
     themeMode: ThemeMode,
@@ -88,91 +110,138 @@ fun PureToneApp(
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
     }
 
+    // 宽窄直接读 Configuration，不额外引 window-size-class 依赖
+    val widthClass = WidthClass.of(LocalConfiguration.current.screenWidthDp)
+    val useRail = widthClass != WidthClass.COMPACT
+    val isPlayer = currentRoute == Routes.PLAYER
+
     Scaffold(
         bottomBar = {
-            Column {
-                // 播放页全屏，其余页面常驻迷你条。
-                // PlayerBarHost 内部自己订阅播放状态，外面的导航树不会被进度刷新带着重组。
-                if (currentRoute != Routes.PLAYER) {
-                    BottomAudioBar(
-                        app = app,
-                        onOpenPlayer = { navController.navigate(Routes.PLAYER) },
-                    )
-                }
-                if (isTab) {
-                    NavigationBar {
-                        Tabs.forEach { tab ->
-                            val selected = currentDestination?.hierarchy
-                                ?.any { it.route == tab.route } == true
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = { navController.navigateToTab(tab.route) },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) },
-                            )
+            // 只有窄屏才用底部栏；宽屏改由侧轨 + 内容区内的迷你条承载
+            if (!useRail) {
+                Column {
+                    if (!isPlayer) {
+                        BottomAudioBar(
+                            app = app,
+                            onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                        )
+                    }
+                    if (isTab) {
+                        NavigationBar {
+                            Tabs.forEach { tab ->
+                                val selected = currentDestination?.hierarchy
+                                    ?.any { it.route == tab.route } == true
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = { navController.navigateToTab(tab.route) },
+                                    icon = { Icon(tab.icon, contentDescription = null) },
+                                    label = { Text(tab.label) },
+                                )
+                            }
                         }
                     }
                 }
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Routes.LIBRARY,
-            modifier = Modifier.padding(innerPadding),
-            // 全屏播放页与列表之间不做过场动画：淡入淡出会留下前一个界面的残影，
-            // 切页也更干脆
-            enterTransition = { EnterTransition.None },
-            exitTransition = { ExitTransition.None },
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = { ExitTransition.None },
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
         ) {
-            composable(Routes.LIBRARY) {
-                LibraryScreen(
-                    onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
-                )
-            }
-            composable(Routes.SEARCH) {
-                SearchScreen(
-                    onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
-                    onOpenPlayer = { navController.navigate(Routes.PLAYER) },
-                )
-            }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(
-                    themeMode = themeMode,
-                    onThemeModeChange = onThemeModeChange,
-                    onOpenHelp = { navController.navigate(Routes.HELP) },
-                )
-            }
-            composable(Routes.HELP) {
-                HelpScreen(onBack = { navController.popBackStack() })
-            }
-            composable(Routes.PLAYER) {
-                PlayerScreen(onBack = { navController.popBackStack() })
+            if (useRail) {
+                NavigationRail(modifier = Modifier.fillMaxHeight()) {
+                    Spacer(Modifier.height(Space.md))
+                    Tabs.forEach { tab ->
+                        val selected = currentDestination?.hierarchy
+                            ?.any { it.route == tab.route } == true
+                        NavigationRailItem(
+                            selected = selected,
+                            onClick = { navController.navigateToTab(tab.route) },
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            label = { Text(tab.label) },
+                        )
+                    }
+                }
             }
 
-            composable(
-                route = Routes.PLAYLIST,
-                arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
-            ) { entry ->
-                val id = entry.arguments?.getLong("playlistId") ?: -1L
-                PlaylistDetailScreen(
-                    playlistId = id,
-                    onBack = { navController.popBackStack() },
-                    onAddSongs = { navController.navigate(Routes.addSongs(id)) },
-                )
-            }
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = Routes.LIBRARY,
+                        modifier = Modifier
+                            .widthIn(max = Space.maxContentWidth)
+                            .fillMaxHeight(),
+                        // 全屏播放页与列表之间不做过场动画：淡入淡出会留下前一个界面的残影
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None },
+                    ) {
+                        composable(Routes.LIBRARY) {
+                            LibraryScreen(
+                                onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                            )
+                        }
+                        composable(Routes.SEARCH) {
+                            SearchScreen(
+                                onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                                onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                            )
+                        }
+                        composable(Routes.SETTINGS) {
+                            SettingsScreen(
+                                themeMode = themeMode,
+                                onThemeModeChange = onThemeModeChange,
+                                onOpenHelp = { navController.navigate(Routes.HELP) },
+                            )
+                        }
+                        composable(Routes.HELP) {
+                            HelpScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(Routes.PLAYER) {
+                            PlayerScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            route = Routes.PLAYLIST,
+                            arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
+                        ) { entry ->
+                            val id = entry.arguments?.getLong("playlistId") ?: -1L
+                            PlaylistDetailScreen(
+                                playlistId = id,
+                                onBack = { navController.popBackStack() },
+                                onAddSongs = { navController.navigate(Routes.addSongs(id)) },
+                            )
+                        }
+                        composable(
+                            route = Routes.ADD_SONGS,
+                            arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
+                        ) { entry ->
+                            val id = entry.arguments?.getLong("playlistId") ?: -1L
+                            AddSongsScreen(
+                                playlistId = id,
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                    }
+                }
 
-            composable(
-                route = Routes.ADD_SONGS,
-                arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
-            ) { entry ->
-                val id = entry.arguments?.getLong("playlistId") ?: -1L
-                AddSongsScreen(
-                    playlistId = id,
-                    onBack = { navController.popBackStack() },
-                )
+                // 宽屏：迷你条贴内容区底部，与内容同宽
+                if (useRail && !isPlayer) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        BottomAudioBar(
+                            app = app,
+                            onOpenPlayer = { navController.navigate(Routes.PLAYER) },
+                            modifier = Modifier
+                                .widthIn(max = 560.dp)
+                                .padding(horizontal = Space.md, vertical = Space.sm),
+                        )
+                    }
+                }
             }
         }
     }

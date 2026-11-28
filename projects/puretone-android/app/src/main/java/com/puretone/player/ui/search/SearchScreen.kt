@@ -49,10 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.layout.heightIn
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.R
 import com.puretone.player.data.db.PlaylistWithCount
@@ -174,20 +177,20 @@ fun SearchScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(Space.xl))
         Text(
             text = "搜索",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.padding(horizontal = Space.lg),
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(Space.s150))
 
         // 芯片放横向滚动列表：窄屏也放得下五个音源，不会把「酷我」挤成竖排
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = Space.lg),
+            horizontalArrangement = Arrangement.spacedBy(Space.sm),
         ) {
             item {
                 SourceChip(
@@ -212,7 +215,7 @@ fun SearchScreen(
             onValueChange = { query = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = Space.lg),
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                 imeAction = androidx.compose.ui.text.input.ImeAction.Search,
@@ -243,7 +246,7 @@ fun SearchScreen(
             },
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Space.s150))
 
         if (source != SourceType.LOCAL && onlineReadOnly) {
             ReadOnlyBanner(
@@ -314,13 +317,13 @@ private fun SourceChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun ReadOnlyBanner(onRetry: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Space.md, vertical = Space.s150),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -380,7 +383,7 @@ private fun LocalResults(
 
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
+            contentPadding = PaddingValues(bottom = Space.lg),
         ) {
             if (matchedTracks.isNotEmpty()) {
                 item { SectionHeader("歌曲 · ${matchedTracks.size}") }
@@ -453,7 +456,7 @@ private fun OnlineResults(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                contentPadding = PaddingValues(bottom = Space.lg),
             ) {
                 item { SectionHeader("歌曲 · ${results.size}") }
                 items(results, key = { it.key }) { song ->
@@ -489,13 +492,14 @@ private fun OnlineSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .heightIn(min = Space.listRowMin)
+            .padding(horizontal = Space.md, vertical = Space.s75),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 左侧按钮：只负责播放/暂停，不和「进歌词页」冲突
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(Space.minTouch)
                 .clip(CircleShape)
                 .clickable(onClick = onTogglePreview),
             contentAlignment = Alignment.Center,
@@ -525,13 +529,13 @@ private fun OnlineSongRow(
                 )
             }
         }
-        Spacer(Modifier.width(2.dp))
+        Spacer(Modifier.width(Space.xxs))
         Column(
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.small)
                 .clickable(onClick = onOpenPlayer)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = Space.s75, vertical = Space.s75),
         ) {
             Text(
                 text = song.title,
@@ -540,7 +544,7 @@ private fun OnlineSongRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Space.xxs))
             Text(
                 text = listOf(song.artist, song.album)
                     .filter { it.isNotBlank() }
@@ -552,7 +556,7 @@ private fun OnlineSongRow(
             )
         }
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Space.sm))
 
         when (downloadState) {
             // 下载是独立按钮：点它不触发试听。
@@ -631,7 +635,7 @@ private fun TrackResultRow(track: Track, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Space.xxs))
             Text(
                 text = track.artist,
                 style = MaterialTheme.typography.bodyMedium,
@@ -675,18 +679,23 @@ private fun PlaylistResultRow(item: PlaylistWithCount, onClick: () -> Unit) {
     }
 }
 
+/**
+ * 空状态：靠近内容起点而不是屏幕正中。
+ * 居中的空提示会让人以为是加载卡住，紧贴搜索框下方才像"这里可以开始"。
+ */
 @Composable
 private fun CenterHint(text: String) {
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Space.s500, start = Space.lg, end = Space.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 32.dp),
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -708,7 +717,7 @@ private fun SearchHistoryView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+                .padding(start = Space.lg, end = Space.md, top = Space.s75, bottom = Space.xxs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -727,14 +736,15 @@ private fun SearchHistoryView(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
+            contentPadding = PaddingValues(bottom = Space.lg),
         ) {
             items(history, key = { it }) { keyword ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onPick(keyword) }
-                        .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                        .heightIn(min = Space.minTouch)
+                        .padding(start = Space.lg, end = Space.sm, top = Space.xs, bottom = Space.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(

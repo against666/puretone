@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.puretone.player.ui.theme.Space
 import com.puretone.player.PureToneApplication
 import com.puretone.player.data.db.Track
 import com.puretone.player.ui.components.formatDuration
@@ -94,7 +95,7 @@ fun PlaylistDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 8.dp, top = 8.dp),
+                .padding(start = Space.xs, end = 8.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) { Text("←") }
@@ -146,7 +147,7 @@ fun PlaylistDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = Space.md, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
@@ -164,7 +165,7 @@ fun PlaylistDetailScreen(
                 },
             )
             if (!viewModel.isAllSongs) {
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(Space.xs))
                 IconButton(onClick = onAddSongs) {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -291,7 +292,7 @@ private fun TrackRow(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = Space.md, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (number != null) {
@@ -306,7 +307,7 @@ private fun TrackRow(
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(28.dp),
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(Space.s175))
         }
 
         Column(Modifier.weight(1f)) {
@@ -321,7 +322,7 @@ private fun TrackRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Space.xxs))
             Text(
                 text = "${track.artist} · ${formatDuration(track.durationMs)}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -331,12 +332,28 @@ private fun TrackRow(
             )
         }
 
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = if (isAllSongs) Icons.Filled.Delete else Icons.Filled.Clear,
-                contentDescription = if (isAllSongs) "删除" else "移除",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        // 每行常驻一个垃圾桶太吵：收进溢出菜单，只在需要时展开
+        var menuOpen by remember { mutableStateOf(false) }
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = "更多操作",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (isAllSongs) "删除歌曲" else "从歌单移除") },
+                    onClick = {
+                        menuOpen = false
+                        onRemove()
+                    },
+                )
+            }
         }
     }
 }
@@ -346,7 +363,7 @@ private fun EmptyHint(text: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = Space.lg),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
