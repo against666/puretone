@@ -190,14 +190,14 @@ class OnlineSearchViewModel(
                 val alternative = repository.previewElsewhere(song)
                 if (alternative != null) {
                     val (source, altDetail) = alternative
-                    _message.value = "${song.source.displayName}暂无播放地址，已改用${source.displayName}试听"
+                    _message.value = "${song.source.displayName}解析失败，已改用${source.displayName}试听"
                     detail = altDetail
                 }
             }
 
             if (detail?.mp3Url.isNullOrBlank()) {
                 previewPlayer.stop()
-                _message.value = "暂时拿不到播放地址，稍后再试或换个音源"
+                _message.value = "当前音源解析失败，请稍后重试或更换音源"
                 return@launch
             }
             previewDetails[song.key] = detail!!

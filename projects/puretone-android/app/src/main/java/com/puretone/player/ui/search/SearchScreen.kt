@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -93,6 +94,25 @@ fun SearchScreen(
     // 点「下载」时先选去处；没有歌单就直接进音乐库
     var downloadTarget by remember { mutableStateOf<OnlineSong?>(null) }
     val scope = rememberCoroutineScope()
+    // 点了「进歌词页」后先不跳：等试听真正开始（session 就绪）再跳，
+    // 解析失败则留在搜索页，只弹提示
+    var pendingOpenKey by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(previewState.session?.key, previewState.status) {
+        val key = pendingOpenKey ?: return@LaunchedEffect
+        when {
+            previewState.session?.key == key &&
+                previewState.status != PreviewState.Status.LOADING -> {
+                pendingOpenKey = null
+                onOpenPlayer()
+            }
+
+            previewState.status == PreviewState.Status.IDLE -> {
+                // 地址没解析出来，试听被取消：不跳页
+                pendingOpenKey = null
+            }
+        }
+    }
 
     val context = LocalContext.current
     LaunchedEffect(message) {
@@ -243,7 +263,7 @@ fun SearchScreen(
                 onTogglePreview = onlineViewModel::togglePreview,
                 onOpenPlayer = { song ->
                     onlineViewModel.playPreview(song)
-                    onOpenPlayer()
+                    pendingOpenKey = song.key
                 },
                 onDownload = { song ->
                     if (targetPlaylists.isEmpty()) {
@@ -386,24 +406,39 @@ private fun OnlineResults(
 
         results.isEmpty() -> CenterHint("没有找到和「${keyword.trim()}」相关的歌曲。")
 
-        else -> LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
-        ) {
-            item { SectionHeader("歌曲 · ${results.size}") }
-            items(results, key = { it.key }) { song ->
-                OnlineSongRow(
-                    song = song,
-                    downloadState = when {
-                        song.key in downloaded -> DownloadState.Done
-                        song.key in downloading -> DownloadState.Downloading
-                        else -> DownloadState.Idle
-                    },
-                    previewStatus = if (previewKey == song.key) previewStatus else null,
-                    onTogglePreview = { onTogglePreview(song) },
-                    onOpenPlayer = { onOpenPlayer(song) },
-                    onDownload = { onDownload(song) },
-                )
+        else -> {
+            val listState = rememberLazyListState()
+            // 从歌词页返回时不要停在顶部：定位到当前正在试听的那一首。
+            // 只在本次进入页面后执行一次，之后用户怎么滚都不打扰
+            var didRestoreScroll by remember { mutableStateOf(false) }
+            LaunchedEffect(results, previewKey) {
+                if (didRestoreScroll || previewKey == null) return@LaunchedEffect
+                val index = results.indexOfFirst { it.key == previewKey }
+                if (index < 0) return@LaunchedEffect
+                didRestoreScroll = true
+                listState.scrollToItem(index + 1) // +1 是顶部「歌曲 · N」那一行
+            }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+            ) {
+                item { SectionHeader("歌曲 · ${results.size}") }
+                items(results, key = { it.key }) { song ->
+                    OnlineSongRow(
+                        song = song,
+                        downloadState = when {
+                            song.key in downloaded -> DownloadState.Done
+                            song.key in downloading -> DownloadState.Downloading
+                            else -> DownloadState.Idle
+                        },
+                        previewStatus = if (previewKey == song.key) previewStatus else null,
+                        onTogglePreview = { onTogglePreview(song) },
+                        onOpenPlayer = { onOpenPlayer(song) },
+                        onDownload = { onDownload(song) },
+                    )
+                }
             }
         }
     }
