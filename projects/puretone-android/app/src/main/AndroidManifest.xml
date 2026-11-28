@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 启动时拉取更新配置 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 应用内下载更新包后拉起系统安装器 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".PureToneApplication"
@@ -39,6 +41,17 @@
                     android:scheme="file" />
             </intent-filter>
         </activity>
+
+        <!-- 应用内更新：把下载好的 APK 以 content:// 交给系统安装器 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- 播放服务：Media3 负责与系统媒体会话对接，自带前台通知与锁屏控制 -->
         <service

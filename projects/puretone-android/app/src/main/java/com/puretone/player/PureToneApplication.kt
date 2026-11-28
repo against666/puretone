@@ -11,6 +11,7 @@ import com.puretone.player.data.prefs.AppPreferences
 import com.puretone.player.data.repo.MusicRepository
 import com.puretone.player.data.repo.OnlineMusicRepository
 import com.puretone.player.data.repo.PlaylistRepository
+import com.puretone.player.data.update.ApkUpdater
 import com.puretone.player.data.update.UpdateChecker
 import com.puretone.player.player.PlayerConnection
 import com.puretone.player.player.PreviewPlayer
@@ -71,6 +72,9 @@ class PureToneApplication : Application() {
             playlists = playlistRepository,
         )
     }
+
+    /** 应用内更新：下载 APK 并交给系统安装器 */
+    val apkUpdater: ApkUpdater by lazy { ApkUpdater(this) }
 
     /** 在线试听用的独立播放器，与主播放器互不干扰 */
     val previewPlayer: PreviewPlayer by lazy { PreviewPlayer(this) }

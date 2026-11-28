@@ -181,6 +181,7 @@ fun PureToneApp(
         UpdateDialog(
             info = info,
             currentVersion = BuildConfig.VERSION_NAME,
+            updater = app.apkUpdater,
             onDismiss = { app.updateChecker.dismiss(info) },
         )
     }
