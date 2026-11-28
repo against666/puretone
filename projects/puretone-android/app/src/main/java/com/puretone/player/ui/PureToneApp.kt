@@ -39,6 +39,7 @@ import com.puretone.player.ui.player.PlayerScreen
 import com.puretone.player.ui.playlist.AddSongsScreen
 import com.puretone.player.ui.playlist.PlaylistDetailScreen
 import com.puretone.player.ui.search.SearchScreen
+import com.puretone.player.ui.settings.HelpScreen
 import com.puretone.player.ui.settings.SettingsScreen
 import com.puretone.player.ui.update.UpdateDialog
 
@@ -47,6 +48,7 @@ object Routes {
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val PLAYER = "player"
+    const val HELP = "help"
 
     const val PLAYLIST = "playlist/{playlistId}"
     const val ADD_SONGS = "playlist/{playlistId}/add"
@@ -140,7 +142,11 @@ fun PureToneApp(
                 SettingsScreen(
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
+                    onOpenHelp = { navController.navigate(Routes.HELP) },
                 )
+            }
+            composable(Routes.HELP) {
+                HelpScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.PLAYER) {
                 PlayerScreen(onBack = { navController.popBackStack() })
